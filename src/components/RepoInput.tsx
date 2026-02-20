@@ -14,7 +14,7 @@ export default function RepoInput({ onAnalyze, loading }: Props) {
   const isValidGitHubUrl = (input: string) => {
     const cleaned = input.replace(/\/$/, '').replace(/\.git$/, '');
     return /github\.com\/[^/]+\/[^/]+/.test(cleaned) ||
-      cleaned.split('/').filter(Boolean).length >= 2;
+    cleaned.split('/').filter(Boolean).length >= 2;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,24 +36,24 @@ export default function RepoInput({ onAnalyze, loading }: Props) {
         <input
           type="text"
           value={url}
-          onChange={(e) => { setUrl(e.target.value); if (validationError) setValidationError(null); }}
+          onChange={(e) => {setUrl(e.target.value);if (validationError) setValidationError(null);}}
           placeholder="https://github.com/owner/repo"
-          className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none font-mono"
-        />
+          className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none font-mono" />
+
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           type="submit"
           disabled={loading || !url.trim()}
-          className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors disabled:opacity-40"
-        >
+          className="gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors disabled:opacity-40 flex-row flex items-center justify-start">
+
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           Analyze
         </motion.button>
       </div>
-      {validationError && (
-        <p className="text-xs text-destructive text-center">{validationError}</p>
-      )}
-    </form>
-  );
+      {validationError &&
+      <p className="text-xs text-destructive text-center">{validationError}</p>
+      }
+    </form>);
+
 }
