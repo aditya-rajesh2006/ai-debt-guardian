@@ -2,16 +2,12 @@ import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Brain, Menu, X } from "lucide-react";
 import { useState } from "react";
+import ThemeToggle from "./ThemeToggle";
 
 const links = [
   { to: "/", label: "Home" },
-  { to: "/problem", label: "Problem" },
-  { to: "/solution", label: "Solution" },
-  { to: "/features", label: "Features" },
   { to: "/dashboard", label: "Dashboard" },
   { to: "/about", label: "About" },
-  { to: "/faq", label: "FAQ" },
-  { to: "/contact", label: "Contact" },
 ];
 
 export default function Navbar() {
@@ -19,12 +15,12 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl transition-colors">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <Brain className="h-6 w-6 text-primary" />
+          <Brain className="h-5 w-5 text-primary" />
           <span className="font-mono text-sm font-bold tracking-tight text-foreground">
-            AI<span className="text-primary">Debt</span>Tracker
+            AI<span className="text-primary">Debt</span>
           </span>
         </Link>
 
@@ -36,7 +32,7 @@ export default function Navbar() {
               <Link
                 key={l.to}
                 to={l.to}
-                className={`relative rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`relative rounded-md px-4 py-1.5 text-xs font-medium transition-colors ${
                   active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -53,10 +49,13 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* Mobile toggle */}
-        <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          {/* Mobile toggle */}
+          <button className="md:hidden text-foreground ml-1" onClick={() => setOpen(!open)}>
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

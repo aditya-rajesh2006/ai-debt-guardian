@@ -66,69 +66,114 @@ function isCodeFile(path: string): boolean {
   return CODE_EXTENSIONS.has('.' + path.split('.').pop()?.toLowerCase());
 }
 
-// --- AI Detection Heuristics ---
-function detectAIPatterns(content: string): { aiLikelihood: number; issues: string[]; aiDebtContribution: number } {
+// ── ENHANCED AI PATTERN DETECTION ──
+function detectAIPatterns(content: string, allContents?: string[]): {
+  aiLikelihood: number; issues: string[]; aiDebtContribution: number;
+} {
   const issues: string[] = [];
   let score = 0;
   const lines = content.split('\n');
   const totalLines = lines.length;
 
-  // Generic variable names
-  const genericNames = content.match(/\b(temp|data|result|value|item|obj|arr|res|val|ret|tmp|output|input)\b/g);
-  if (genericNames && genericNames.length > totalLines * 0.02) { score += 0.15; issues.push('overly generic naming'); }
-
-  // Excessive comments
-  const commentLines = lines.filter(l => l.trim().startsWith('//') || l.trim().startsWith('#') || l.trim().startsWith('*')).length;
-  if (commentLines > totalLines * 0.3) { score += 0.1; issues.push('excessive comments'); }
-
-  // Repetitive structures (similar consecutive lines)
-  let repetitive = 0;
-  for (let i = 1; i < lines.length; i++) {
-    const a = lines[i - 1].trim(), b = lines[i].trim();
-    if (a.length > 10 && a === b) repetitive++;
+  // 1. Generic variable names (weighted)
+  const genericNames = content.match(/\b(temp|data|result|value|item|obj|arr|res|val|ret|tmp|output|input|helper|utils|foo|bar|baz|myVar|myFunction|myData)\b/g);
+  if (genericNames && genericNames.length > totalLines * 0.015) {
+    score += 0.18;
+    issues.push('overly generic naming');
   }
-  if (repetitive > 3) { score += 0.15; issues.push('duplicate code'); }
 
-  // Inconsistent naming (mix of camelCase and snake_case)
+  // 2. Over-explained / obvious comments
+  const commentLines = lines.filter(l => {
+    const t = l.trim();
+    return t.startsWith('//') || t.startsWith('#') || t.startsWith('*');
+  });
+  const commentRatio = commentLines.length / totalLines;
+  if (commentRatio > 0.28) { score += 0.12; issues.push('excessive comments'); }
+
+  // 3. Comments that just restate code (obvious AI pattern)
+  const obviousComments = commentLines.filter(l => {
+    const t = l.trim().toLowerCase();
+    return /\/\/ (get|set|create|initialize|check|return|call|loop|iterate|define|declare|update|delete|remove|add|increment|decrement|calculate|compute)\b/.test(t);
+  });
+  if (obviousComments.length > 3) { score += 0.1; issues.push('over-explained comments'); }
+
+  // 4. Repetitive/duplicate code blocks (3+ identical non-blank lines)
+  const lineFrequency = new Map<string, number>();
+  for (const l of lines) {
+    const t = l.trim();
+    if (t.length > 15) lineFrequency.set(t, (lineFrequency.get(t) || 0) + 1);
+  }
+  const duplicated = [...lineFrequency.values()].filter(v => v >= 3).length;
+  if (duplicated > 2) { score += 0.18; issues.push('duplicate code blocks'); }
+
+  // 5. Similar function structures (AI tends to repeat same pattern)
+  const funcBodies = content.match(/(?:function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\()[\s\S]{0,200}?}/g) || [];
+  if (funcBodies.length >= 3) {
+    const stripped = funcBodies.map(b => b.replace(/\s+/g, ' ').replace(/\w+/g, 'X'));
+    const uniq = new Set(stripped).size;
+    if (uniq / funcBodies.length < 0.6) { score += 0.15; issues.push('similar function structures'); }
+  }
+
+  // 6. Cross-file repetition
+  if (allContents && allContents.length > 1) {
+    const chunks = content.match(/[\w\s,;(){}]{40,80}/g) || [];
+    let crossFileMatches = 0;
+    for (const chunk of chunks.slice(0, 20)) {
+      for (const other of allContents) {
+        if (other !== content && other.includes(chunk)) { crossFileMatches++; break; }
+      }
+    }
+    if (crossFileMatches > 3) { score += 0.12; issues.push('repeated logic across files'); }
+  }
+
+  // 7. Inconsistent naming (mix of camelCase, snake_case, PascalCase)
   const camel = content.match(/[a-z][A-Z]/g)?.length || 0;
   const snake = content.match(/[a-z]_[a-z]/g)?.length || 0;
-  if (camel > 5 && snake > 5) { score += 0.1; issues.push('inconsistent naming'); }
+  if (camel > 5 && snake > 5) { score += 0.1; issues.push('inconsistent naming conventions'); }
 
-  // Deep nesting detection
-  const maxIndent = Math.max(...lines.map(l => l.match(/^(\s*)/)?.[1].length || 0));
-  if (maxIndent > 16) { score += 0.1; issues.push('deep nesting'); }
+  // 8. Long parameter lists
+  const longParams = content.match(/\([^)]{90,}\)/g);
+  if (longParams && longParams.length > 2) { score += 0.07; issues.push('long parameter lists'); }
 
-  // Unnecessary abstraction (single-use functions)
-  const funcDecl = content.match(/function\s+\w+|const\s+\w+\s*=\s*(\(|async)/g)?.length || 0;
-  if (funcDecl > totalLines / 10) { score += 0.1; issues.push('unnecessary abstraction'); }
-
-  // Long parameter lists
-  const longParams = content.match(/\([^)]{80,}\)/g);
-  if (longParams && longParams.length > 2) { score += 0.05; issues.push('long parameter list'); }
-
-  // Magic numbers
+  // 9. Magic numbers
   const magicNums = content.match(/(?<![.\w])\d{2,}(?![.\w])/g);
-  if (magicNums && magicNums.length > 5) { score += 0.05; issues.push('magic numbers'); }
+  if (magicNums && magicNums.length > 6) { score += 0.06; issues.push('magic numbers'); }
 
-  // Missing error handling
+  // 10. Missing error handling with async code
   const hasTryCatch = content.includes('try') && content.includes('catch');
   const hasAsync = content.includes('async') || content.includes('await') || content.includes('.then');
   if (hasAsync && !hasTryCatch) { score += 0.1; issues.push('missing error handling'); }
 
-  const aiLikelihood = Math.min(score + 0.1, 1);
+  // 11. Unnecessary abstraction – tiny single-use wrappers
+  const wrappers = content.match(/(?:const|function)\s+\w+\s*=?\s*(?:\([^)]*\)\s*=>?\s*)?{[^}]{0,60}}/g) || [];
+  const tinyFuncs = wrappers.filter(w => w.replace(/\s/g, '').length < 80).length;
+  if (tinyFuncs > 4) { score += 0.08; issues.push('unnecessary abstraction'); }
+
+  const aiLikelihood = Math.min(score + 0.05, 1);
   const aiDebtContribution = aiLikelihood > 0.5 ? 40 + aiLikelihood * 50 : 5 + aiLikelihood * 30;
 
-  return { aiLikelihood: Math.round(aiLikelihood * 100) / 100, issues, aiDebtContribution: Math.round(aiDebtContribution) };
+  return {
+    aiLikelihood: Math.round(aiLikelihood * 100) / 100,
+    issues: [...new Set(issues)],
+    aiDebtContribution: Math.round(aiDebtContribution),
+  };
 }
 
-// --- Technical Debt Detection (simulated PMD/SonarQube) ---
-function detectTechnicalDebt(content: string): { technicalDebt: number; cyclomaticComplexity: number; nestingDepth: number; linesOfCode: number; functions: number } {
+// ── ENHANCED TECHNICAL DEBT ──
+function detectTechnicalDebt(content: string): {
+  technicalDebt: number; cyclomaticComplexity: number; nestingDepth: number;
+  linesOfCode: number; functions: number; techIssues: string[];
+} {
   const lines = content.split('\n');
   const linesOfCode = lines.filter(l => l.trim().length > 0).length;
+  const techIssues: string[] = [];
+  let debt = 0;
 
-  // Cyclomatic complexity approximation
+  // Cyclomatic complexity
   const branches = (content.match(/\b(if|else|for|while|switch|case|catch|&&|\|\||\?)\b/g) || []).length;
   const cyclomaticComplexity = 1 + branches;
+  if (cyclomaticComplexity > 20) { debt += 0.25; techIssues.push('high cyclomatic complexity'); }
+  else if (cyclomaticComplexity > 10) { debt += 0.12; }
 
   // Nesting depth
   let maxDepth = 0, depth = 0;
@@ -136,16 +181,35 @@ function detectTechnicalDebt(content: string): { technicalDebt: number; cyclomat
     if (ch === '{') { depth++; maxDepth = Math.max(maxDepth, depth); }
     if (ch === '}') depth--;
   }
+  if (maxDepth > 4) { debt += 0.2; techIssues.push('deep nesting (>4 levels)'); }
+  else if (maxDepth > 3) { debt += 0.08; }
 
-  // Function count
-  const funcMatches = content.match(/function\s|=>\s*{|const\s+\w+\s*=\s*\(/g);
-  const functions = funcMatches?.length || 1;
+  // Long functions (> 50 lines between braces)
+  const funcMatches = content.match(/(?:function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>?\s*)\{[\s\S]{2000,}?\}/g) || [];
+  if (funcMatches.length > 0) { debt += 0.2 * Math.min(funcMatches.length, 3); techIssues.push('long functions (>50 lines)'); }
 
-  // Technical debt score based on complexity, size, nesting
-  let debt = 0;
-  debt += Math.min(cyclomaticComplexity / 30, 0.4);
-  debt += Math.min(maxDepth / 8, 0.3);
-  debt += Math.min(linesOfCode / 500, 0.3);
+  // Large file
+  if (linesOfCode > 400) { debt += 0.2; techIssues.push('large file (>400 LOC)'); }
+  else if (linesOfCode > 300) { debt += 0.1; techIssues.push('large file (>300 LOC)'); }
+
+  // Poor modularization – too many responsibilities heuristic
+  const funcDecl = content.match(/function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\(/g)?.length || 1;
+  const functions = funcDecl;
+  if (functions > 20) { debt += 0.1; techIssues.push('poor modularization'); }
+
+  // Duplicate blocks (similar to AI detection but for tech debt)
+  const blockPattern = content.match(/\{[^{}]{30,100}\}/g) || [];
+  const blockFreq = new Map<string, number>();
+  for (const b of blockPattern) {
+    const k = b.replace(/\s+/g, ' ');
+    blockFreq.set(k, (blockFreq.get(k) || 0) + 1);
+  }
+  const dupeBlocks = [...blockFreq.values()].filter(v => v > 2).length;
+  if (dupeBlocks > 1) { debt += 0.15; techIssues.push('duplicate code blocks'); }
+
+  // Missing modularization (one big function)
+  const avgFuncLen = linesOfCode / Math.max(functions, 1);
+  if (avgFuncLen > 40) { debt += 0.1; techIssues.push('missing modularization'); }
 
   return {
     technicalDebt: Math.round(Math.min(debt, 1) * 100) / 100,
@@ -153,63 +217,95 @@ function detectTechnicalDebt(content: string): { technicalDebt: number; cyclomat
     nestingDepth: maxDepth,
     linesOfCode,
     functions,
+    techIssues,
   };
 }
 
-// --- Cognitive Debt Detection ---
-function detectCognitiveDebt(content: string, techDebt: number, aiLikelihood: number): { cognitiveDebt: number; metrics: FileAnalysis['metrics'] } {
+// ── ENHANCED COGNITIVE DEBT ──
+function detectCognitiveDebt(content: string, techDebt: number, aiLikelihood: number): {
+  cognitiveDebt: number; metrics: FileAnalysis['metrics']; cogIssues: string[];
+} {
   const lines = content.split('\n');
   const totalLines = lines.length;
+  const cogIssues: string[] = [];
 
   // CCD - Cognitive Complexity Drift
   const controlFlow = (content.match(/\b(if|else|for|while|do|switch|try|catch)\b/g) || []).length;
-  const ccd = Math.min(controlFlow / (totalLines * 0.15 + 1), 1);
+  const ccd = Math.min(controlFlow / (totalLines * 0.12 + 1), 1);
+  if (ccd > 0.6) cogIssues.push('high cognitive complexity drift');
 
-  // ES - Explainability Score (higher = more explainable)
+  // Variable naming clarity (avg identifier length – shorter = less clear)
   const identifiers = content.match(/\b[a-zA-Z_]\w{2,}\b/g) || [];
   const avgLen = identifiers.reduce((s, id) => s + id.length, 0) / (identifiers.length || 1);
   const es = Math.min(avgLen / 12, 1);
+  if (avgLen < 5) cogIssues.push('poor variable naming clarity');
 
-  // AES - AI Entropy Score (randomness in structure)
+  // Comment usefulness: comments that just say what the code does
+  const commentLines = lines.filter(l => l.trim().startsWith('//') || l.trim().startsWith('#'));
+  const uselessComments = commentLines.filter(l => {
+    const t = l.toLowerCase();
+    return /\/\/ (the|this|here|we|it|get|set|return|call|is|are|do|make|add|remove|update|create)\b/.test(t);
+  }).length;
+  const commentUsefulness = 1 - Math.min(uselessComments / Math.max(commentLines.length, 1), 1);
+  if (commentUsefulness < 0.5) cogIssues.push('low comment usefulness');
+
+  // Mixed abstraction levels – mixing high-level logic with implementation details
+  const hasHighLevel = /\b(orchestrate|coordinate|manage|handle|process|workflow|pipeline)\b/i.test(content);
+  const hasLowLevel = /\b(bit|byte|pointer|buffer|offset|malloc|free|raw|parse|serialize)\b/i.test(content);
+  if (hasHighLevel && hasLowLevel) { cogIssues.push('mixed abstraction levels'); }
+
+  // Inconsistent naming patterns (deep check)
+  const camel = (content.match(/[a-z][A-Z]\w/g) || []).length;
+  const snake = (content.match(/[a-z]_[a-z]/g) || []).length;
+  const pascal = (content.match(/\b[A-Z][a-z]+[A-Z]/g) || []).length;
+  const styles = [camel > 3, snake > 3, pascal > 3].filter(Boolean).length;
+  if (styles > 2) cogIssues.push('inconsistent naming patterns');
+
+  // AES – AI Entropy Score (structural variance)
   const lineLengths = lines.map(l => l.length);
   const avgLineLen = lineLengths.reduce((s, l) => s + l, 0) / totalLines;
   const variance = lineLengths.reduce((s, l) => s + Math.pow(l - avgLineLen, 2), 0) / totalLines;
   const aes = Math.min(Math.sqrt(variance) / 40, 1);
 
-  // RDI - Readability Degradation Index
-  const commentLines = lines.filter(l => l.trim().startsWith('//') || l.trim().startsWith('#')).length;
-  const commentRatio = commentLines / totalLines;
-  const rdi = commentRatio > 0.3 ? 0.8 : commentRatio < 0.05 ? 0.6 : 0.3;
+  // RDI – Readability Degradation Index
+  const commentRatio = commentLines.length / totalLines;
+  const rdi = commentRatio > 0.3 ? 0.8 : commentRatio < 0.05 ? 0.55 : 0.3;
+
+  // Function readability score (shorter + well-named functions = better)
+  const funcNames = content.match(/function\s+([a-zA-Z]\w+)/g) || [];
+  const avgFuncNameLen = funcNames.reduce((s, f) => s + f.replace('function ', '').length, 0) / (funcNames.length || 1);
+  const funcReadability = Math.min(avgFuncNameLen / 10, 1);
+  if (avgFuncNameLen < 4) cogIssues.push('low function readability score');
 
   // DPS, DLI, DRF
   const dps = Math.round((techDebt * 0.6 + aiLikelihood * 0.4) * 100) / 100;
   const dli = Math.round((techDebt * 0.5 + ccd * 0.5) * 100) / 100;
   const drf = Math.round((aes * 0.4 + techDebt * 0.3 + aiLikelihood * 0.3) * 100) / 100;
 
-  const cognitiveDebt = Math.round(Math.min((ccd * 0.3 + (1 - es) * 0.25 + aes * 0.25 + rdi * 0.2), 1) * 100) / 100;
+  const cognitiveDebt = Math.round(
+    Math.min((ccd * 0.25 + (1 - es) * 0.2 + aes * 0.2 + rdi * 0.15 + (1 - commentUsefulness) * 0.1 + (1 - funcReadability) * 0.1), 1) * 100
+  ) / 100;
 
   return {
     cognitiveDebt,
+    cogIssues,
     metrics: {
       ccd: Math.round(ccd * 100) / 100,
       es: Math.round(es * 100) / 100,
       aes: Math.round(aes * 100) / 100,
       rdi: Math.round(rdi * 100) / 100,
-      dps,
-      dli,
-      drf,
+      dps, dli, drf,
     },
   };
 }
 
-// --- Build Propagation Graph ---
+// ── PROPAGATION GRAPH ──
 function buildPropagationGraph(files: FileAnalysis[], fileContents: Map<string, string>): PropagationEdge[] {
   const edges: PropagationEdge[] = [];
   const filePaths = files.map(f => f.file);
 
   for (const file of files) {
     const content = fileContents.get(file.file) || '';
-    // Detect imports
     const importMatches = content.match(/(?:import|require)\s*\(?['"]([^'"]+)['"]\)?/g) || [];
     for (const imp of importMatches) {
       const target = imp.match(/['"]([^'"]+)['"]/)?.[1] || '';
@@ -225,7 +321,6 @@ function buildPropagationGraph(files: FileAnalysis[], fileContents: Map<string, 
     }
   }
 
-  // Add pattern-based edges for files with similar issues
   for (let i = 0; i < files.length; i++) {
     for (let j = i + 1; j < files.length; j++) {
       const shared = files[i].issues.filter(iss => files[j].issues.includes(iss));
@@ -240,7 +335,7 @@ function buildPropagationGraph(files: FileAnalysis[], fileContents: Map<string, 
     }
   }
 
-  return edges.slice(0, 30);
+  return edges.slice(0, 35);
 }
 
 async function fetchRepoFiles(owner: string, repo: string, path = ''): Promise<GitHubFile[]> {
@@ -249,87 +344,86 @@ async function fetchRepoFiles(owner: string, repo: string, path = ''): Promise<G
   let files: GitHubFile[] = [];
 
   for (const item of items) {
-    if (item.type === 'file' && isCodeFile(item.path)) {
+    if (item.type === 'file' && isCodeFile(item.path) && item.size < 200000) {
       files.push(item);
-    } else if (item.type === 'dir' && !item.name.startsWith('.') && item.name !== 'node_modules' && item.name !== 'vendor' && item.name !== 'dist' && item.name !== 'build') {
-      if (files.length < 30) {
+    } else if (item.type === 'dir' && !item.name.startsWith('.') &&
+      !['node_modules', 'vendor', 'dist', 'build', '.git', '__pycache__', 'coverage'].includes(item.name)) {
+      if (files.length < 40) {
         try {
           const subFiles = await fetchRepoFiles(owner, repo, item.path);
           files = files.concat(subFiles);
-        } catch { /* skip inaccessible dirs */ }
+        } catch { /* skip */ }
       }
     }
-    if (files.length >= 30) break;
+    if (files.length >= 40) break;
   }
-  return files.slice(0, 30);
+  return files.slice(0, 40);
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
     const { repoUrl } = await req.json();
     if (!repoUrl) throw new Error('repoUrl is required');
 
     const { owner, repo } = parseOwnerRepo(repoUrl);
-
-    // Fetch repo info
     const repoInfo = await fetchGitHub(`https://api.github.com/repos/${owner}/${repo}`);
-
-    // Fetch files
     const ghFiles = await fetchRepoFiles(owner, repo);
     if (ghFiles.length === 0) throw new Error('No code files found in repository');
 
-    // Fetch file contents and analyze
     const fileContentsMap = new Map<string, string>();
-    const fileAnalyses: FileAnalysis[] = [];
 
-    const filePromises = ghFiles.map(async (ghFile) => {
+    // Fetch all file contents first (needed for cross-file analysis)
+    const contentFetches = ghFiles.map(async (ghFile) => {
       try {
         if (!ghFile.download_url) return null;
         const res = await fetch(ghFile.download_url);
         if (!res.ok) return null;
         const content = await res.text();
-        if (content.length > 100000) return null; // skip very large files
-        fileContentsMap.set(ghFile.path, content);
-
-        const ai = detectAIPatterns(content);
-        const tech = detectTechnicalDebt(content);
-        const cog = detectCognitiveDebt(content, tech.technicalDebt, ai.aiLikelihood);
-
-        const analysis: FileAnalysis = {
-          file: ghFile.path,
-          aiLikelihood: ai.aiLikelihood,
-          technicalDebt: tech.technicalDebt,
-          cognitiveDebt: cog.cognitiveDebt,
-          propagationScore: cog.metrics.dps,
-          issues: ai.issues,
-          metrics: cog.metrics,
-          linesOfCode: tech.linesOfCode,
-          functions: tech.functions,
-          cyclomaticComplexity: tech.cyclomaticComplexity,
-          nestingDepth: tech.nestingDepth,
-          aiDebtContribution: ai.aiDebtContribution,
-        };
-        return analysis;
-      } catch {
-        return null;
-      }
+        if (content.length > 120000) return null;
+        return { path: ghFile.path, content };
+      } catch { return null; }
     });
 
-    const results = await Promise.all(filePromises);
-    for (const r of results) {
-      if (r) fileAnalyses.push(r);
+    const contentResults = await Promise.all(contentFetches);
+    for (const r of contentResults) {
+      if (r) fileContentsMap.set(r.path, r.content);
+    }
+
+    const allContents = [...fileContentsMap.values()];
+    const fileAnalyses: FileAnalysis[] = [];
+
+    for (const ghFile of ghFiles) {
+      const content = fileContentsMap.get(ghFile.path);
+      if (!content) continue;
+
+      const ai = detectAIPatterns(content, allContents);
+      const tech = detectTechnicalDebt(content);
+      const cog = detectCognitiveDebt(content, tech.technicalDebt, ai.aiLikelihood);
+
+      const allIssues = [...new Set([...ai.issues, ...tech.techIssues, ...cog.cogIssues])];
+
+      fileAnalyses.push({
+        file: ghFile.path,
+        aiLikelihood: ai.aiLikelihood,
+        technicalDebt: tech.technicalDebt,
+        cognitiveDebt: cog.cognitiveDebt,
+        propagationScore: cog.metrics.dps,
+        issues: allIssues,
+        metrics: cog.metrics,
+        linesOfCode: tech.linesOfCode,
+        functions: tech.functions,
+        cyclomaticComplexity: tech.cyclomaticComplexity,
+        nestingDepth: tech.nestingDepth,
+        aiDebtContribution: ai.aiDebtContribution,
+      });
     }
 
     if (fileAnalyses.length === 0) throw new Error('Could not analyze any files');
 
-    // Build propagation graph
     const propagation = buildPropagationGraph(fileAnalyses, fileContentsMap);
 
-    // Compute summary
     const n = fileAnalyses.length;
     const avgAiLikelihood = Math.round(fileAnalyses.reduce((s, f) => s + f.aiLikelihood, 0) / n * 100) / 100;
     const avgTechnicalDebt = Math.round(fileAnalyses.reduce((s, f) => s + f.technicalDebt, 0) / n * 100) / 100;
@@ -348,7 +442,7 @@ serve(async (req) => {
         avgCognitiveDebt,
         totalIssues: fileAnalyses.reduce((s, f) => s + f.issues.length, 0),
         highRiskFiles: fileAnalyses.filter(f => f.aiLikelihood > 0.5 && f.technicalDebt > 0.4).length,
-        topRefactorTargets: fileAnalyses
+        topRefactorTargets: [...fileAnalyses]
           .sort((a, b) => (b.technicalDebt + b.cognitiveDebt) - (a.technicalDebt + a.cognitiveDebt))
           .slice(0, 3)
           .map(f => f.file),

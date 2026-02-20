@@ -4,8 +4,9 @@
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
+/* ── DARK MODE (default) ── */
 @layer base {
-  :root {
+  :root, .dark {
     --background: 220 20% 4%;
     --foreground: 210 20% 92%;
 
@@ -42,10 +43,6 @@
     --neon-red: 0 72% 55%;
     --neon-green: 142 72% 48%;
 
-    --gradient-cyber: linear-gradient(135deg, hsl(174 72% 52% / 0.15), hsl(270 72% 62% / 0.15));
-    --gradient-card: linear-gradient(145deg, hsl(220 18% 9%), hsl(220 18% 6%));
-    --gradient-hero: linear-gradient(180deg, hsl(220 20% 4%) 0%, hsl(220 22% 8%) 50%, hsl(220 20% 4%) 100%);
-
     --shadow-neon: 0 0 20px hsl(174 72% 52% / 0.15), 0 0 60px hsl(174 72% 52% / 0.05);
     --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.4);
 
@@ -58,21 +55,69 @@
     --sidebar-border: 220 14% 16%;
     --sidebar-ring: 174 72% 52%;
   }
+
+  /* ── LIGHT MODE ── */
+  .light {
+    --background: 210 20% 98%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 174 60% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 16% 92%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 210 14% 94%;
+    --muted-foreground: 215 12% 45%;
+
+    --accent: 36 90% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 14% 88%;
+    --input: 210 14% 88%;
+    --ring: 174 60% 38%;
+
+    --neon-cyan: 174 60% 38%;
+    --neon-purple: 270 55% 52%;
+    --neon-amber: 36 90% 45%;
+    --neon-red: 0 72% 50%;
+    --neon-green: 142 55% 38%;
+
+    --shadow-neon: 0 0 20px hsl(174 60% 38% / 0.12), 0 0 60px hsl(174 60% 38% / 0.04);
+    --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.08);
+
+    --sidebar-background: 210 16% 96%;
+    --sidebar-foreground: 220 20% 20%;
+    --sidebar-primary: 174 60% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 14% 90%;
+    --sidebar-accent-foreground: 220 20% 20%;
+    --sidebar-border: 210 14% 88%;
+    --sidebar-ring: 174 60% 38%;
+  }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
+
+  html { transition: background-color 0.3s ease, color 0.3s ease; }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  code, pre, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
-  }
+  code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
 }
 
 @layer utilities {
@@ -88,8 +133,8 @@
 
   .bg-grid-pattern {
     background-image:
-      linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
+      linear-gradient(hsl(var(--border) / 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.4) 1px, transparent 1px);
     background-size: 40px 40px;
   }
 
@@ -101,25 +146,51 @@
     box-shadow: 0 0 20px hsl(var(--neon-amber) / 0.3), 0 0 60px hsl(var(--neon-amber) / 0.1);
   }
 
-  .border-glow {
-    border-color: hsl(var(--primary) / 0.3);
+  .border-glow { border-color: hsl(var(--primary) / 0.3); }
+
+  .animate-pulse-slow { animation: pulse 3s ease-in-out infinite; }
+  .animate-float      { animation: float 6s ease-in-out infinite; }
+
+  /* Card lift effect */
+  .card-hover {
+    @apply transition-all duration-200;
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px hsl(var(--primary) / 0.15);
+    }
   }
 
-  .animate-pulse-slow {
-    animation: pulse 3s ease-in-out infinite;
-  }
-
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
+  /* Ripple button */
+  .btn-ripple {
+    position: relative;
+    overflow: hidden;
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle, hsl(var(--primary) / 0.3) 0%, transparent 70%);
+      transform: scale(0);
+      transition: transform 0.4s ease;
+    }
+    &:active::after { transform: scale(2); }
   }
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50%       { transform: translateY(-10px); }
 }
 
 @keyframes scanline {
-  0% { transform: translateY(-100%); }
+  0%   { transform: translateY(-100%); }
   100% { transform: translateY(100%); }
+}
+
+@keyframes scan-bar {
+  0%   { left: -100%; }
+  100% { left: 110%; }
+}
+
+.scan-bar {
+  animation: scan-bar 1.8s ease-in-out infinite;
 }
