@@ -9,20 +9,34 @@ interface Props {
 
 export default function RepoInput({ onAnalyze, loading }: Props) {
   const [url, setUrl] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const isValidGitHubUrl = (input: string) => {
+    const cleaned = input.replace(/\/$/, '').replace(/\.git$/, '');
+    return /github\.com\/[^/]+\/[^/]+/.test(cleaned) ||
+      cleaned.split('/').filter(Boolean).length >= 2;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (url.trim()) onAnalyze(url.trim());
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    if (!isValidGitHubUrl(trimmed)) {
+      setValidationError("Please enter a valid GitHub URL, e.g. https://github.com/owner/repo");
+      return;
+    }
+    setValidationError(null);
+    onAnalyze(trimmed);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
-      <div className="relative flex items-center rounded-xl border border-border bg-card p-1.5 transition-all focus-within:border-primary/50 focus-within:glow-cyan">
+    <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto space-y-2">
+      <div className={`relative flex items-center rounded-xl border bg-card p-1.5 transition-all focus-within:border-primary/50 ${validationError ? 'border-destructive' : 'border-border'}`}>
         <GitBranch className="ml-3 h-4 w-4 text-muted-foreground shrink-0" />
         <input
           type="text"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(e) => { setUrl(e.target.value); if (validationError) setValidationError(null); }}
           placeholder="https://github.com/owner/repo"
           className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none font-mono"
         />
@@ -37,6 +51,9 @@ export default function RepoInput({ onAnalyze, loading }: Props) {
           Analyze
         </motion.button>
       </div>
+      {validationError && (
+        <p className="text-xs text-destructive text-center">{validationError}</p>
+      )}
     </form>
   );
 }
