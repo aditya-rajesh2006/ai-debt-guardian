@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Brain, Menu, X } from "lucide-react";
+import { Brain, Menu, X, LogOut, User } from "lucide-react";
 import { useState } from "react";
 import ThemeToggle from "./ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 
 const links = [
   { to: "/", label: "Home" },
@@ -13,6 +14,7 @@ const links = [
 export default function Navbar() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl transition-colors">
@@ -51,6 +53,27 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          {user ? (
+            <div className="hidden md:flex items-center gap-2">
+              <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                {user.user_metadata?.full_name || user.email?.split("@")[0]}
+              </span>
+              <button
+                onClick={signOut}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-all"
+                title="Sign out"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/auth"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:opacity-90"
+            >
+              <User className="h-3 w-3" /> Sign In
+            </Link>
+          )}
           {/* Mobile toggle */}
           <button className="md:hidden text-foreground ml-1" onClick={() => setOpen(!open)}>
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -77,6 +100,22 @@ export default function Navbar() {
               {l.label}
             </Link>
           ))}
+          {user ? (
+            <button
+              onClick={() => { signOut(); setOpen(false); }}
+              className="mt-2 block w-full rounded-md px-3 py-2 text-sm text-left text-destructive hover:bg-destructive/10"
+            >
+              Sign Out
+            </button>
+          ) : (
+            <Link
+              to="/auth"
+              onClick={() => setOpen(false)}
+              className="mt-2 block rounded-md px-3 py-2 text-sm text-primary bg-primary/10"
+            >
+              Sign In
+            </Link>
+          )}
         </motion.div>
       )}
     </nav>

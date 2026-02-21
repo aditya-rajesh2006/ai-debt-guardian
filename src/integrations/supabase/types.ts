@@ -14,7 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analysis_history: {
+        Row: {
+          avg_ai_likelihood: number | null
+          avg_cognitive_debt: number | null
+          avg_technical_debt: number | null
+          created_at: string
+          high_risk_files: number | null
+          id: string
+          is_favorite: boolean | null
+          language: string | null
+          repo_name: string
+          repo_url: string
+          stars: number | null
+          total_files: number | null
+          user_id: string
+        }
+        Insert: {
+          avg_ai_likelihood?: number | null
+          avg_cognitive_debt?: number | null
+          avg_technical_debt?: number | null
+          created_at?: string
+          high_risk_files?: number | null
+          id?: string
+          is_favorite?: boolean | null
+          language?: string | null
+          repo_name: string
+          repo_url: string
+          stars?: number | null
+          total_files?: number | null
+          user_id: string
+        }
+        Update: {
+          avg_ai_likelihood?: number | null
+          avg_cognitive_debt?: number | null
+          avg_technical_debt?: number | null
+          created_at?: string
+          high_risk_files?: number | null
+          id?: string
+          is_favorite?: boolean | null
+          language?: string | null
+          repo_name?: string
+          repo_url?: string
+          stars?: number | null
+          total_files?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Brain, Bug, FileCode, GitFork, TrendingUp, Zap, AlertTriangle,
-  RefreshCw, Star, Code, BarChart3, Network, Table2, Flame
+  RefreshCw, Star, Code, BarChart3, Network, Table2, Flame, Target, Lightbulb
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -10,10 +10,12 @@ import AnimatedBackground from "@/components/AnimatedBackground";
 import RepoInput from "@/components/RepoInput";
 import MetricCard from "@/components/MetricCard";
 import FileTable from "@/components/FileTable";
-import PropagationGraph from "@/components/PropagationGraph";
 import InsightsPanel from "@/components/InsightsPanel";
+import MetricTooltip from "@/components/MetricTooltip";
+import HistoryPanel from "@/components/HistoryPanel";
 import type { AnalysisResult } from "@/lib/mockAnalysis";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
   PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -21,12 +23,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearchParams } from "react-router-dom";
 
+const PropagationGraph = lazy(() => import("@/components/PropagationGraph"));
+
 type Tab = "overview" | "files" | "graph";
 
-// Cache for analysis results
 const analysisCache = new Map<string, AnalysisResult>();
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [data, setData] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +40,9 @@ export default function Dashboard() {
   const [progressMsg, setProgressMsg] = useState("Initializing...");
   const progressRef = useRef<NodeJS.Timeout | null>(null);
   const [searchParams] = useSearchParams();
+  const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-analyze if ?repo= in URL
   useEffect(() => {
     const repo = searchParams.get("repo");
     if (repo) handleAnalyze(repo);
@@ -70,7 +75,25 @@ export default function Dashboard() {
     setProgressMsg("Analysis complete!");
   };
 
-  const handleAnalyze = async (url: string) => {
+  const saveToHistory = async (result: AnalysisResult, url: string) => {
+    if (!user) return;
+    try {
+      await supabase.from("analysis_history").insert({
+        user_id: user.id,
+        repo_url: url,
+        repo_name: result.repoName,
+        stars: (result as any).stars || 0,
+        language: (result as any).language || null,
+        avg_ai_likelihood: result.summary.avgAiLikelihood,
+        avg_technical_debt: result.summary.avgTechnicalDebt,
+        avg_cognitive_debt: result.summary.avgCognitiveDebt,
+        total_files: result.totalFiles,
+        high_risk_files: result.summary.highRiskFiles,
+      });
+    } catch { /* non-blocking */ }
+  };
+
+  const handleAnalyze = useCallback(async (url: string) => {
     const trimmed = url.trim();
     if (analysisCache.has(trimmed)) {
       setData(analysisCache.get(trimmed)!);
@@ -91,15 +114,16 @@ export default function Dashboard() {
       const analysis = result as AnalysisResult;
       analysisCache.set(trimmed, analysis);
       setData(analysis);
+      saveToHistory(analysis, trimmed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
     } finally {
       stopProgress();
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  // Chart data
+  // Chart helpers
   const isDark = document.documentElement.classList.contains("dark");
   const tooltipBg = isDark ? "hsl(220, 18%, 7%)" : "hsl(0, 0%, 100%)";
   const tooltipBorder = isDark ? "hsl(220, 14%, 16%)" : "hsl(210, 14%, 88%)";
@@ -138,7 +162,6 @@ export default function Dashboard() {
     .slice(0, 15)
     .map(f => ({ name: f.file.split('/').pop() || f.file, debt: Math.round((f.technicalDebt + f.cognitiveDebt) / 2 * 100) }));
 
-  // Top risk files
   const topRiskFiles = data?.files
     .sort((a, b) => (b.aiLikelihood + b.technicalDebt + b.cognitiveDebt) - (a.aiLikelihood + a.technicalDebt + a.cognitiveDebt))
     .slice(0, 5);
@@ -146,6 +169,31 @@ export default function Dashboard() {
   const refactorScore = data
     ? Math.round(((data.summary.avgTechnicalDebt + data.summary.avgCognitiveDebt) / 2) * 100)
     : 0;
+
+  // Debt distribution insight
+  const debtDistribution = data ? (() => {
+    const sorted = [...data.files].sort((a, b) => (b.technicalDebt + b.cognitiveDebt) - (a.technicalDebt + a.cognitiveDebt));
+    const totalDebt = sorted.reduce((s, f) => s + f.technicalDebt + f.cognitiveDebt, 0);
+    let accum = 0;
+    let count = 0;
+    for (const f of sorted) {
+      accum += f.technicalDebt + f.cognitiveDebt;
+      count++;
+      if (accum / totalDebt >= 0.7) break;
+    }
+    return { count, total: data.files.length, pct: 70 };
+  })() : null;
+
+  // Refactor impact simulation
+  const getRefactorImpact = (file: typeof data extends null ? never : NonNullable<typeof data>['files'][0]) => {
+    if (!data) return { techReduction: 0, cogReduction: 0 };
+    const totalTech = data.files.reduce((s, f) => s + f.technicalDebt, 0);
+    const totalCog = data.files.reduce((s, f) => s + f.cognitiveDebt, 0);
+    return {
+      techReduction: Math.round((file.technicalDebt / totalTech) * 100),
+      cogReduction: Math.round((file.cognitiveDebt / totalCog) * 100),
+    };
+  };
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
@@ -167,12 +215,18 @@ export default function Dashboard() {
 
         <RepoInput onAnalyze={handleAnalyze} loading={loading} />
 
+        {/* History panel */}
+        {!data && !loading && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 max-w-2xl mx-auto">
+            <HistoryPanel onSelectRepo={handleAnalyze} />
+          </motion.div>
+        )}
+
         {/* Progress bar */}
         <AnimatePresence>
           {loading && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-8 mx-auto max-w-xl">
               <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5">
-                {/* Animated scan bar */}
                 <div className="relative h-1.5 rounded-full bg-muted overflow-hidden mb-4">
                   <motion.div
                     className="absolute h-full rounded-full bg-primary"
@@ -189,16 +243,11 @@ export default function Dashboard() {
                   <span className="font-mono text-primary">{progress}%</span>
                 </div>
               </div>
-              {/* Skeleton */}
               <div className="mt-6 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
                 </div>
                 <Skeleton className="h-64 rounded-xl" />
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <Skeleton className="h-64 rounded-xl" />
-                  <Skeleton className="h-64 rounded-xl" />
-                </div>
               </div>
             </motion.div>
           )}
@@ -238,7 +287,6 @@ export default function Dashboard() {
                   </span>
                 )}
               </div>
-              {/* Tabs */}
               <div className="flex items-center gap-1 rounded-xl border border-border bg-card/80 backdrop-blur-sm p-1">
                 {tabs.map(tab => (
                   <button
@@ -258,27 +306,52 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Summary Cards (always visible) */}
+            {/* Summary Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricCard title="AI Likelihood" value={data.summary.avgAiLikelihood * 100} suffix="%" icon={Zap} color="cyan" delay={0} description="Avg across files" />
-              <MetricCard title="Technical Debt" value={data.summary.avgTechnicalDebt * 100} suffix="%" icon={Bug} color="amber" delay={0.1} description="AI-induced portion" />
-              <MetricCard title="Cognitive Debt" value={data.summary.avgCognitiveDebt * 100} suffix="%" icon={Brain} color="purple" delay={0.2} description="Readability impact" />
-              <MetricCard title="High Risk Files" value={data.summary.highRiskFiles} icon={AlertTriangle} color="red" delay={0.3} description={`of ${data.totalFiles} total`} />
+              <MetricTooltip metric="AI Likelihood">
+                <div className="w-full"><MetricCard title="AI Likelihood" value={data.summary.avgAiLikelihood * 100} suffix="%" icon={Zap} color="cyan" delay={0} description="Avg across files" /></div>
+              </MetricTooltip>
+              <MetricTooltip metric="Technical Debt">
+                <div className="w-full"><MetricCard title="Technical Debt" value={data.summary.avgTechnicalDebt * 100} suffix="%" icon={Bug} color="amber" delay={0.1} description="AI-induced portion" /></div>
+              </MetricTooltip>
+              <MetricTooltip metric="Cognitive Debt">
+                <div className="w-full"><MetricCard title="Cognitive Debt" value={data.summary.avgCognitiveDebt * 100} suffix="%" icon={Brain} color="purple" delay={0.2} description="Readability impact" /></div>
+              </MetricTooltip>
+              <MetricTooltip metric="High Risk Files">
+                <div className="w-full"><MetricCard title="High Risk Files" value={data.summary.highRiskFiles} icon={AlertTriangle} color="red" delay={0.3} description={`of ${data.totalFiles} total`} /></div>
+              </MetricTooltip>
             </div>
+
+            {/* Debt distribution insight */}
+            {debtDistribution && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-4 flex items-center gap-3"
+              >
+                <Lightbulb className="h-5 w-5 text-primary shrink-0" />
+                <p className="text-sm text-foreground">
+                  <strong className="text-primary">{debtDistribution.pct}%</strong> of your debt comes from just{" "}
+                  <strong className="text-primary">{debtDistribution.count} files</strong> out of {debtDistribution.total} total.
+                </p>
+              </motion.div>
+            )}
 
             {/* Tab content */}
             <AnimatePresence mode="wait">
               {activeTab === "overview" && (
                 <motion.div key="overview" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }} className="space-y-6">
 
-                  {/* Refactor Priority Score + Top Risk */}
+                  {/* Refactor Score + Top Risk + Guided Insights */}
                   <div className="grid gap-4 lg:grid-cols-3">
                     {/* Refactor Score */}
-                    <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Flame className="h-4 w-4 text-destructive" />
-                        <h3 className="text-sm font-semibold text-foreground">Refactor Priority Score</h3>
-                      </div>
+                    <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5 card-hover">
+                      <MetricTooltip metric="Refactor Priority Score">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Flame className="h-4 w-4 text-destructive" />
+                          <h3 className="text-sm font-semibold text-foreground">Refactor Priority</h3>
+                        </div>
+                      </MetricTooltip>
                       <div className="flex items-end gap-2 mb-3">
                         <span className="text-4xl font-black font-mono text-foreground">{refactorScore}</span>
                         <span className="text-sm text-muted-foreground mb-1">/100</span>
@@ -297,28 +370,60 @@ export default function Dashboard() {
                       </p>
                     </div>
 
-                    {/* Top Risk Files */}
-                    <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5 lg:col-span-2">
+                    {/* Top Risk Files with Refactor Impact */}
+                    <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5 lg:col-span-2 card-hover">
                       <div className="flex items-center gap-2 mb-4">
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                        <Target className="h-4 w-4 text-destructive" />
                         <h3 className="text-sm font-semibold text-foreground">Top Risk Files</h3>
+                        <span className="text-[10px] text-muted-foreground ml-auto">Click for refactor impact</span>
                       </div>
                       <div className="space-y-2.5">
                         {topRiskFiles?.map((f, i) => {
                           const risk = Math.round((f.aiLikelihood + f.technicalDebt + f.cognitiveDebt) / 3 * 100);
+                          const impact = getRefactorImpact(f);
+                          const isExpanded = expandedFile === f.file;
                           return (
-                            <div key={f.file} className="flex items-center gap-3">
-                              <span className="text-xs font-mono text-muted-foreground w-4">{i + 1}</span>
-                              <span className="flex-1 text-xs font-mono text-foreground truncate">{f.file.split('/').slice(-2).join('/')}</span>
-                              <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
-                                <motion.div
-                                  className="h-full rounded-full bg-destructive"
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${risk}%` }}
-                                  transition={{ duration: 0.8, delay: i * 0.1 }}
-                                />
-                              </div>
-                              <span className="text-xs font-mono text-destructive w-8 text-right">{risk}%</span>
+                            <div key={f.file}>
+                              <button
+                                onClick={() => setExpandedFile(isExpanded ? null : f.file)}
+                                className="flex w-full items-center gap-3 hover:bg-secondary/30 rounded-lg px-2 py-1 transition-colors"
+                              >
+                                <span className="text-xs font-mono text-muted-foreground w-4">{i + 1}</span>
+                                <span className="flex-1 text-xs font-mono text-foreground truncate text-left">{f.file.split('/').slice(-2).join('/')}</span>
+                                <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <motion.div
+                                    className="h-full rounded-full"
+                                    style={{ background: risk > 60 ? "hsl(var(--destructive))" : risk > 30 ? "hsl(var(--neon-amber))" : "hsl(var(--primary))" }}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${risk}%` }}
+                                    transition={{ duration: 0.8, delay: i * 0.1 }}
+                                  />
+                                </div>
+                                <span className="text-xs font-mono w-8 text-right" style={{ color: risk > 60 ? "hsl(var(--destructive))" : risk > 30 ? "hsl(var(--neon-amber))" : "hsl(var(--primary))" }}>{risk}%</span>
+                              </button>
+                              <AnimatePresence>
+                                {isExpanded && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden ml-6"
+                                  >
+                                    <div className="rounded-lg bg-secondary/30 p-3 mt-1 text-xs space-y-1.5">
+                                      <p className="text-muted-foreground">
+                                        <strong className="text-foreground">If you fix this file:</strong>
+                                      </p>
+                                      <p className="text-muted-foreground">→ Technical debt reduces by <strong className="text-neon-green">{impact.techReduction}%</strong></p>
+                                      <p className="text-muted-foreground">→ Cognitive debt reduces by <strong className="text-neon-green">{impact.cogReduction}%</strong></p>
+                                      <div className="flex flex-wrap gap-1 mt-2">
+                                        {f.issues.slice(0, 4).map(iss => (
+                                          <span key={iss} className="rounded bg-destructive/10 border border-destructive/20 px-1.5 py-0.5 text-[10px] text-destructive">{iss}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </div>
                           );
                         })}
@@ -328,12 +433,11 @@ export default function Dashboard() {
 
                   {/* Charts Row */}
                   <div className="grid gap-6 lg:grid-cols-3">
-                    {/* Bar Chart */}
                     <motion.div
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.2 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 lg:col-span-2"
+                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 lg:col-span-2 card-hover"
                     >
                       <h3 className="mb-4 text-sm font-semibold text-foreground">Debt Distribution by File</h3>
                       <ResponsiveContainer width="100%" height={240}>
@@ -357,12 +461,11 @@ export default function Dashboard() {
                       </ResponsiveContainer>
                     </motion.div>
 
-                    {/* Pie Chart */}
                     <motion.div
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.3 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4"
+                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover"
                     >
                       <h3 className="mb-4 text-sm font-semibold text-foreground">Debt Composition</h3>
                       <ResponsiveContainer width="100%" height={200}>
@@ -390,7 +493,7 @@ export default function Dashboard() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.4 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4"
+                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover"
                     >
                       <h3 className="mb-4 text-sm font-semibold text-foreground">Metrics Radar</h3>
                       <ResponsiveContainer width="100%" height={260}>
@@ -408,7 +511,7 @@ export default function Dashboard() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.45 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4"
+                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover"
                     >
                       <h3 className="mb-4 text-sm font-semibold text-foreground">Debt Heatmap</h3>
                       <div className="grid grid-cols-5 gap-1.5">
@@ -436,7 +539,7 @@ export default function Dashboard() {
                     </motion.div>
                   </div>
 
-                  {/* Insights */}
+                  {/* Guided Insights */}
                   <InsightsPanel data={data} />
                 </motion.div>
               )}
@@ -449,7 +552,9 @@ export default function Dashboard() {
 
               {activeTab === "graph" && (
                 <motion.div key="graph" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
-                  <PropagationGraph data={data} />
+                  <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
+                    <PropagationGraph data={data} />
+                  </Suspense>
                 </motion.div>
               )}
             </AnimatePresence>
