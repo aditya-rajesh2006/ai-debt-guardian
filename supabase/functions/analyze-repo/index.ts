@@ -75,20 +75,24 @@ function detectAIPatterns(content: string, allContents?: string[]): {
   const lines = content.split('\n');
   const totalLines = lines.length;
 
-  // 1. Generic variable names (weighted)
-  const genericNames = content.match(/\b(temp|data|result|value|item|obj|arr|res|val|ret|tmp|output|input|helper|utils|foo|bar|baz|myVar|myFunction|myData)\b/g);
-  if (genericNames && genericNames.length > totalLines * 0.015) {
-    score += 0.18;
+  // 1. Generic variable names (STRICT — lower threshold)
+  const genericNames = content.match(/\b(temp|data|result|value|item|obj|arr|res|val|ret|tmp|output|input|helper|utils|foo|bar|baz|myVar|myFunction|myData|info|stuff|thing|element|node|entry|record|payload|response|request|handler|callback|args|params|options|config|settings|state|props|context|ref|el|str|num|idx|cnt|len|flag|status|type|kind|mode|key|id)\b/g);
+  if (genericNames && genericNames.length > totalLines * 0.008) {
+    score += 0.22;
     issues.push('overly generic naming');
+  } else if (genericNames && genericNames.length > totalLines * 0.004) {
+    score += 0.12;
+    issues.push('partially generic naming');
   }
 
-  // 2. Over-explained / obvious comments
+  // 2. Over-explained / obvious comments (STRICT — lower threshold)
   const commentLines = lines.filter(l => {
     const t = l.trim();
     return t.startsWith('//') || t.startsWith('#') || t.startsWith('*');
   });
   const commentRatio = commentLines.length / totalLines;
-  if (commentRatio > 0.28) { score += 0.12; issues.push('excessive comments'); }
+  if (commentRatio > 0.20) { score += 0.18; issues.push('excessive comments'); }
+  else if (commentRatio > 0.12) { score += 0.08; issues.push('high comment density'); }
 
   // 3. Comments that just restate code (obvious AI pattern)
   const obviousComments = commentLines.filter(l => {
@@ -97,14 +101,15 @@ function detectAIPatterns(content: string, allContents?: string[]): {
   });
   if (obviousComments.length > 3) { score += 0.1; issues.push('over-explained comments'); }
 
-  // 4. Repetitive/duplicate code blocks (3+ identical non-blank lines)
+  // 4. Repetitive/duplicate code blocks (STRICT — 2+ identical lines)
   const lineFrequency = new Map<string, number>();
   for (const l of lines) {
     const t = l.trim();
-    if (t.length > 15) lineFrequency.set(t, (lineFrequency.get(t) || 0) + 1);
+    if (t.length > 12) lineFrequency.set(t, (lineFrequency.get(t) || 0) + 1);
   }
-  const duplicated = [...lineFrequency.values()].filter(v => v >= 3).length;
-  if (duplicated > 2) { score += 0.18; issues.push('duplicate code blocks'); }
+  const duplicated = [...lineFrequency.values()].filter(v => v >= 2).length;
+  if (duplicated > 4) { score += 0.22; issues.push('duplicate code blocks'); }
+  else if (duplicated > 1) { score += 0.10; issues.push('minor code duplication'); }
 
   // 5. Similar function structures (AI tends to repeat same pattern)
   const funcBodies = content.match(/(?:function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\()[\s\S]{0,200}?}/g) || [];
@@ -149,8 +154,28 @@ function detectAIPatterns(content: string, allContents?: string[]): {
   const tinyFuncs = wrappers.filter(w => w.replace(/\s/g, '').length < 80).length;
   if (tinyFuncs > 4) { score += 0.08; issues.push('unnecessary abstraction'); }
 
-  const aiLikelihood = Math.min(score + 0.05, 1);
-  const aiDebtContribution = aiLikelihood > 0.5 ? 40 + aiLikelihood * 50 : 5 + aiLikelihood * 30;
+  // 12. Uniform line lengths (AI code tends to have very consistent line lengths)
+  const nonEmptyLines = lines.filter(l => l.trim().length > 0);
+  const lineLens = nonEmptyLines.map(l => l.length);
+  const avgLen = lineLens.reduce((s, l) => s + l, 0) / lineLens.length;
+  const stdDev = Math.sqrt(lineLens.reduce((s, l) => s + Math.pow(l - avgLen, 2), 0) / lineLens.length);
+  if (stdDev < 12 && nonEmptyLines.length > 20) { score += 0.12; issues.push('suspiciously uniform formatting'); }
+
+  // 13. Perfect import organization (AI tends to perfectly group imports)
+  const importLines = lines.filter(l => l.trim().startsWith('import '));
+  if (importLines.length > 5) {
+    const sorted = [...importLines].sort();
+    if (JSON.stringify(importLines) === JSON.stringify(sorted)) {
+      score += 0.06; issues.push('perfectly sorted imports');
+    }
+  }
+
+  // 14. Excessive type annotations (TypeScript)
+  const typeAnnotations = (content.match(/:\s*(string|number|boolean|any|void|never|undefined|null)\b/g) || []).length;
+  if (typeAnnotations > totalLines * 0.05) { score += 0.08; issues.push('excessive type annotations'); }
+
+  const aiLikelihood = Math.min(score + 0.08, 1);
+  const aiDebtContribution = aiLikelihood > 0.4 ? 45 + aiLikelihood * 55 : 8 + aiLikelihood * 35;
 
   return {
     aiLikelihood: Math.round(aiLikelihood * 100) / 100,
@@ -172,8 +197,9 @@ function detectTechnicalDebt(content: string): {
   // Cyclomatic complexity
   const branches = (content.match(/\b(if|else|for|while|switch|case|catch|&&|\|\||\?)\b/g) || []).length;
   const cyclomaticComplexity = 1 + branches;
-  if (cyclomaticComplexity > 20) { debt += 0.25; techIssues.push('high cyclomatic complexity'); }
-  else if (cyclomaticComplexity > 10) { debt += 0.12; }
+  if (cyclomaticComplexity > 15) { debt += 0.30; techIssues.push('high cyclomatic complexity'); }
+  else if (cyclomaticComplexity > 8) { debt += 0.18; techIssues.push('moderate cyclomatic complexity'); }
+  else if (cyclomaticComplexity > 5) { debt += 0.06; }
 
   // Nesting depth
   let maxDepth = 0, depth = 0;
@@ -181,16 +207,18 @@ function detectTechnicalDebt(content: string): {
     if (ch === '{') { depth++; maxDepth = Math.max(maxDepth, depth); }
     if (ch === '}') depth--;
   }
-  if (maxDepth > 4) { debt += 0.2; techIssues.push('deep nesting (>4 levels)'); }
-  else if (maxDepth > 3) { debt += 0.08; }
+  if (maxDepth > 4) { debt += 0.30; techIssues.push('deep nesting (>4 levels)'); }
+  else if (maxDepth > 3) { debt += 0.18; techIssues.push('nesting at 4 levels'); }
+  else if (maxDepth > 2) { debt += 0.06; }
 
   // Long functions (> 50 lines between braces)
   const funcMatches = content.match(/(?:function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>?\s*)\{[\s\S]{2000,}?\}/g) || [];
   if (funcMatches.length > 0) { debt += 0.2 * Math.min(funcMatches.length, 3); techIssues.push('long functions (>50 lines)'); }
 
-  // Large file
-  if (linesOfCode > 400) { debt += 0.2; techIssues.push('large file (>400 LOC)'); }
-  else if (linesOfCode > 300) { debt += 0.1; techIssues.push('large file (>300 LOC)'); }
+  // Large file (STRICT)
+  if (linesOfCode > 300) { debt += 0.25; techIssues.push('large file (>300 LOC)'); }
+  else if (linesOfCode > 200) { debt += 0.15; techIssues.push('growing file (>200 LOC)'); }
+  else if (linesOfCode > 150) { debt += 0.05; }
 
   // Poor modularization – too many responsibilities heuristic
   const funcDecl = content.match(/function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\(/g)?.length || 1;

@@ -33,6 +33,8 @@ export interface PropagationEdge {
 export interface AnalysisResult {
   repoName: string;
   totalFiles: number;
+  stars?: number;
+  language?: string;
   files: FileAnalysis[];
   propagation: PropagationEdge[];
   summary: {
@@ -43,6 +45,29 @@ export interface AnalysisResult {
     highRiskFiles: number;
     topRefactorTargets: string[];
   };
+}
+
+export interface CommitAnalysis {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  techDebt: number;
+  cogDebt: number;
+  aiContribution: number;
+  filesChanged: number;
+  additions: number;
+  deletions: number;
+  isSpike: boolean;
+}
+
+export interface CommitTimelineData {
+  commits: CommitAnalysis[];
+  developers: { name: string; techImpact: number; cogImpact: number; commits: number; totalImpact: number }[];
+  trend: string;
+  momentum: string;
+  prediction: { techDebt5: number; techDebt10: number; cogDebt5: number; cogDebt10: number };
+  spikeCount: number;
 }
 
 const ISSUE_TYPES = [

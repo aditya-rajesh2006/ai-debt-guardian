@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Brain, Bug, FileCode, GitFork, TrendingUp, Zap, AlertTriangle,
-  RefreshCw, Star, Code, BarChart3, Network, Table2, Flame, Target, Lightbulb
+  RefreshCw, Star, Code, BarChart3, Network, Table2, Flame, Target, Lightbulb,
+  Clock, Wrench, Shield
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -13,7 +14,9 @@ import FileTable from "@/components/FileTable";
 import InsightsPanel from "@/components/InsightsPanel";
 import MetricTooltip from "@/components/MetricTooltip";
 import HistoryPanel from "@/components/HistoryPanel";
-import type { AnalysisResult } from "@/lib/mockAnalysis";
+import CommitTimeline from "@/components/CommitTimeline";
+import RefactorRecommendations from "@/components/RefactorRecommendations";
+import type { AnalysisResult, CommitTimelineData } from "@/lib/mockAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -25,14 +28,17 @@ import { useSearchParams } from "react-router-dom";
 
 const PropagationGraph = lazy(() => import("@/components/PropagationGraph"));
 
-type Tab = "overview" | "files" | "graph";
+type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations";
 
 const analysisCache = new Map<string, AnalysisResult>();
+const timelineCache = new Map<string, CommitTimelineData>();
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState<AnalysisResult | null>(null);
+  const [timelineData, setTimelineData] = useState<CommitTimelineData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [lastUrl, setLastUrl] = useState("");
@@ -41,7 +47,6 @@ export default function Dashboard() {
   const progressRef = useRef<NodeJS.Timeout | null>(null);
   const [searchParams] = useSearchParams();
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const repo = searchParams.get("repo");
@@ -52,12 +57,14 @@ export default function Dashboard() {
     setProgress(0);
     const steps = [
       { p: 10, msg: "Connecting to GitHub API..." },
-      { p: 25, msg: "Fetching repository structure..." },
-      { p: 45, msg: "Downloading source files..." },
-      { p: 65, msg: "Running AI pattern detection..." },
-      { p: 78, msg: "Calculating technical debt..." },
-      { p: 88, msg: "Analyzing cognitive load..." },
-      { p: 95, msg: "Building propagation graph..." },
+      { p: 20, msg: "Fetching repository structure..." },
+      { p: 35, msg: "Downloading source files..." },
+      { p: 50, msg: "Running AI pattern detection..." },
+      { p: 65, msg: "Calculating technical debt (strict mode)..." },
+      { p: 75, msg: "Analyzing cognitive load..." },
+      { p: 85, msg: "Building propagation graph..." },
+      { p: 92, msg: "Generating refactor recommendations..." },
+      { p: 97, msg: "Finalizing analysis..." },
     ];
     let i = 0;
     progressRef.current = setInterval(() => {
@@ -66,7 +73,7 @@ export default function Dashboard() {
         setProgressMsg(steps[i].msg);
         i++;
       }
-    }, 900);
+    }, 800);
   };
 
   const stopProgress = () => {
@@ -82,8 +89,8 @@ export default function Dashboard() {
         user_id: user.id,
         repo_url: url,
         repo_name: result.repoName,
-        stars: (result as any).stars || 0,
-        language: (result as any).language || null,
+        stars: result.stars || 0,
+        language: result.language || null,
         avg_ai_likelihood: result.summary.avgAiLikelihood,
         avg_technical_debt: result.summary.avgTechnicalDebt,
         avg_cognitive_debt: result.summary.avgCognitiveDebt,
@@ -93,17 +100,41 @@ export default function Dashboard() {
     } catch { /* non-blocking */ }
   };
 
+  const fetchTimeline = useCallback(async (url: string) => {
+    const trimmed = url.trim();
+    if (timelineCache.has(trimmed)) {
+      setTimelineData(timelineCache.get(trimmed)!);
+      return;
+    }
+    setTimelineLoading(true);
+    try {
+      const { data: result, error: fnError } = await supabase.functions.invoke("analyze-commits", {
+        body: { repoUrl: trimmed, commitCount: 20 },
+      });
+      if (fnError) throw fnError;
+      if (result?.error) throw new Error(result.error);
+      timelineCache.set(trimmed, result);
+      setTimelineData(result);
+    } catch (e) {
+      console.error("Timeline fetch failed:", e);
+    } finally {
+      setTimelineLoading(false);
+    }
+  }, []);
+
   const handleAnalyze = useCallback(async (url: string) => {
     const trimmed = url.trim();
     if (analysisCache.has(trimmed)) {
       setData(analysisCache.get(trimmed)!);
       setError(null);
+      fetchTimeline(trimmed);
       return;
     }
     setLoading(true);
     setError(null);
     setLastUrl(trimmed);
     setData(null);
+    setTimelineData(null);
     startProgress();
     try {
       const { data: result, error: fnError } = await supabase.functions.invoke("analyze-repo", {
@@ -115,13 +146,15 @@ export default function Dashboard() {
       analysisCache.set(trimmed, analysis);
       setData(analysis);
       saveToHistory(analysis, trimmed);
+      // Fetch timeline in background
+      fetchTimeline(trimmed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
     } finally {
       stopProgress();
       setLoading(false);
     }
-  }, [user]);
+  }, [user, fetchTimeline]);
 
   // Chart helpers
   const isDark = document.documentElement.classList.contains("dark");
@@ -170,7 +203,16 @@ export default function Dashboard() {
     ? Math.round(((data.summary.avgTechnicalDebt + data.summary.avgCognitiveDebt) / 2) * 100)
     : 0;
 
-  // Debt distribution insight
+  const confidenceScore = data ? (() => {
+    const n = data.files.length;
+    const avgIssues = data.summary.totalIssues / n;
+    const metricConsistency = data.files.reduce((s, f) => {
+      const spread = Math.abs(f.technicalDebt - f.cognitiveDebt);
+      return s + (1 - spread);
+    }, 0) / n;
+    return Math.round(Math.min((avgIssues / 5 * 0.4 + metricConsistency * 0.6), 1) * 100);
+  })() : 0;
+
   const debtDistribution = data ? (() => {
     const sorted = [...data.files].sort((a, b) => (b.technicalDebt + b.cognitiveDebt) - (a.technicalDebt + a.cognitiveDebt));
     const totalDebt = sorted.reduce((s, f) => s + f.technicalDebt + f.cognitiveDebt, 0);
@@ -184,8 +226,7 @@ export default function Dashboard() {
     return { count, total: data.files.length, pct: 70 };
   })() : null;
 
-  // Refactor impact simulation
-  const getRefactorImpact = (file: typeof data extends null ? never : NonNullable<typeof data>['files'][0]) => {
+  const getRefactorImpact = (file: NonNullable<typeof data>['files'][0]) => {
     if (!data) return { techReduction: 0, cogReduction: 0 };
     const totalTech = data.files.reduce((s, f) => s + f.technicalDebt, 0);
     const totalCog = data.files.reduce((s, f) => s + f.cognitiveDebt, 0);
@@ -198,6 +239,8 @@ export default function Dashboard() {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "files", label: "Files", icon: Table2 },
+    { id: "timeline", label: "Timeline", icon: Clock },
+    { id: "recommendations", label: "Fix Plan", icon: Wrench },
     { id: "graph", label: "Graph", icon: Network },
   ];
 
@@ -207,15 +250,13 @@ export default function Dashboard() {
       <Navbar />
 
       <div className="relative z-10 container pt-24 pb-16">
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
           <h1 className="text-3xl font-black text-foreground">Analysis Dashboard</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Analyze any public GitHub repository for AI-induced debt</p>
+          <p className="mt-2 text-sm text-muted-foreground">Analyze any public GitHub repository for AI-induced debt — strict detection mode</p>
         </motion.div>
 
         <RepoInput onAnalyze={handleAnalyze} loading={loading} />
 
-        {/* History panel */}
         {!data && !loading && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 max-w-2xl mx-auto">
             <HistoryPanel onSelectRepo={handleAnalyze} />
@@ -228,11 +269,7 @@ export default function Dashboard() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-8 mx-auto max-w-xl">
               <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5">
                 <div className="relative h-1.5 rounded-full bg-muted overflow-hidden mb-4">
-                  <motion.div
-                    className="absolute h-full rounded-full bg-primary"
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                  />
+                  <motion.div className="absolute h-full rounded-full bg-primary" animate={{ width: `${progress}%` }} transition={{ duration: 0.6, ease: "easeOut" }} />
                   <div className="scan-bar absolute h-full w-16 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -276,23 +313,23 @@ export default function Dashboard() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-bold text-foreground font-mono">{data.repoName}</h2>
-                {(data as any).stars > 0 && (
+                {data.stars != null && data.stars > 0 && (
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Star className="h-3 w-3 text-accent" /> {(data as any).stars}
+                    <Star className="h-3 w-3 text-accent" /> {data.stars}
                   </span>
                 )}
-                {(data as any).language && (
+                {data.language && (
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Code className="h-3 w-3" /> {(data as any).language}
+                    <Code className="h-3 w-3" /> {data.language}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1 rounded-xl border border-border bg-card/80 backdrop-blur-sm p-1">
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-card/80 backdrop-blur-sm p-1 overflow-x-auto">
                 {tabs.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
                       activeTab === tab.id ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -307,18 +344,21 @@ export default function Dashboard() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <MetricTooltip metric="AI Likelihood">
                 <div className="w-full"><MetricCard title="AI Likelihood" value={data.summary.avgAiLikelihood * 100} suffix="%" icon={Zap} color="cyan" delay={0} description="Avg across files" /></div>
               </MetricTooltip>
               <MetricTooltip metric="Technical Debt">
-                <div className="w-full"><MetricCard title="Technical Debt" value={data.summary.avgTechnicalDebt * 100} suffix="%" icon={Bug} color="amber" delay={0.1} description="AI-induced portion" /></div>
+                <div className="w-full"><MetricCard title="Technical Debt" value={data.summary.avgTechnicalDebt * 100} suffix="%" icon={Bug} color="amber" delay={0.1} description="Strict detection" /></div>
               </MetricTooltip>
               <MetricTooltip metric="Cognitive Debt">
                 <div className="w-full"><MetricCard title="Cognitive Debt" value={data.summary.avgCognitiveDebt * 100} suffix="%" icon={Brain} color="purple" delay={0.2} description="Readability impact" /></div>
               </MetricTooltip>
               <MetricTooltip metric="High Risk Files">
-                <div className="w-full"><MetricCard title="High Risk Files" value={data.summary.highRiskFiles} icon={AlertTriangle} color="red" delay={0.3} description={`of ${data.totalFiles} total`} /></div>
+                <div className="w-full"><MetricCard title="High Risk" value={data.summary.highRiskFiles} icon={AlertTriangle} color="red" delay={0.3} description={`of ${data.totalFiles} files`} /></div>
+              </MetricTooltip>
+              <MetricTooltip metric="Debt Confidence Score">
+                <div className="w-full"><MetricCard title="Confidence" value={confidenceScore} suffix="%" icon={Shield} color="cyan" delay={0.4} description="Detection reliability" /></div>
               </MetricTooltip>
             </div>
 
@@ -342,9 +382,8 @@ export default function Dashboard() {
               {activeTab === "overview" && (
                 <motion.div key="overview" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }} className="space-y-6">
 
-                  {/* Refactor Score + Top Risk + Guided Insights */}
+                  {/* Refactor Score + Top Risk */}
                   <div className="grid gap-4 lg:grid-cols-3">
-                    {/* Refactor Score */}
                     <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5 card-hover">
                       <MetricTooltip metric="Refactor Priority Score">
                         <div className="flex items-center gap-2 mb-3">
@@ -370,7 +409,6 @@ export default function Dashboard() {
                       </p>
                     </div>
 
-                    {/* Top Risk Files with Refactor Impact */}
                     <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5 lg:col-span-2 card-hover">
                       <div className="flex items-center gap-2 mb-4">
                         <Target className="h-4 w-4 text-destructive" />
@@ -403,16 +441,9 @@ export default function Dashboard() {
                               </button>
                               <AnimatePresence>
                                 {isExpanded && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="overflow-hidden ml-6"
-                                  >
+                                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden ml-6">
                                     <div className="rounded-lg bg-secondary/30 p-3 mt-1 text-xs space-y-1.5">
-                                      <p className="text-muted-foreground">
-                                        <strong className="text-foreground">If you fix this file:</strong>
-                                      </p>
+                                      <p className="text-muted-foreground"><strong className="text-foreground">If you fix this file:</strong></p>
                                       <p className="text-muted-foreground">→ Technical debt reduces by <strong className="text-neon-green">{impact.techReduction}%</strong></p>
                                       <p className="text-muted-foreground">→ Cognitive debt reduces by <strong className="text-neon-green">{impact.cogReduction}%</strong></p>
                                       <div className="flex flex-wrap gap-1 mt-2">
@@ -433,21 +464,13 @@ export default function Dashboard() {
 
                   {/* Charts Row */}
                   <div className="grid gap-6 lg:grid-cols-3">
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 lg:col-span-2 card-hover"
-                    >
+                    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 lg:col-span-2 card-hover">
                       <h3 className="mb-4 text-sm font-semibold text-foreground">Debt Distribution by File</h3>
                       <ResponsiveContainer width="100%" height={240}>
                         <BarChart data={chartData} barGap={2}>
                           <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 9 }} />
                           <YAxis tick={{ fill: tickColor, fontSize: 9 }} />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, fontSize: 11 }}
-                            cursor={{ fill: "hsl(var(--primary) / 0.05)" }}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, fontSize: 11 }} cursor={{ fill: "hsl(var(--primary) / 0.05)" }} />
                           <Bar dataKey="ai" name="AI Likelihood %" radius={[4, 4, 0, 0]}>
                             {chartData?.map((_, i) => <Cell key={i} fill="hsl(174, 72%, 52%)" fillOpacity={0.75} />)}
                           </Bar>
@@ -461,13 +484,8 @@ export default function Dashboard() {
                       </ResponsiveContainer>
                     </motion.div>
 
-                    <motion.div
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover"
-                    >
-                      <h3 className="mb-4 text-sm font-semibold text-foreground">Debt Composition</h3>
+                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover">
+                      <h3 className="mb-4 text-sm font-semibold text-foreground">Debt DNA</h3>
                       <ResponsiveContainer width="100%" height={200}>
                         <PieChart>
                           <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={4} dataKey="value">
@@ -489,16 +507,11 @@ export default function Dashboard() {
 
                   {/* Radar + Heatmap */}
                   <div className="grid gap-6 lg:grid-cols-2">
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover"
-                    >
-                      <h3 className="mb-4 text-sm font-semibold text-foreground">Metrics Radar</h3>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover">
+                      <h3 className="mb-4 text-sm font-semibold text-foreground">Metrics Radar (Debt DNA)</h3>
                       <ResponsiveContainer width="100%" height={260}>
                         <RadarChart data={radarData}>
-                          <PolarGrid stroke={`hsl(var(--border))`} />
+                          <PolarGrid stroke="hsl(var(--border))" />
                           <PolarAngleAxis dataKey="metric" tick={{ fill: tickColor, fontSize: 10 }} />
                           <PolarRadiusAxis tick={{ fill: tickColor, fontSize: 8 }} domain={[0, 100]} />
                           <Radar name="Score" dataKey="value" stroke="hsl(174, 72%, 52%)" fill="hsl(174, 72%, 52%)" fillOpacity={0.2} />
@@ -507,12 +520,7 @@ export default function Dashboard() {
                       </ResponsiveContainer>
                     </motion.div>
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.45 }}
-                      className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover"
-                    >
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover">
                       <h3 className="mb-4 text-sm font-semibold text-foreground">Debt Heatmap</h3>
                       <div className="grid grid-cols-5 gap-1.5">
                         {heatmapData?.map((f, i) => {
@@ -539,7 +547,6 @@ export default function Dashboard() {
                     </motion.div>
                   </div>
 
-                  {/* Guided Insights */}
                   <InsightsPanel data={data} />
                 </motion.div>
               )}
@@ -547,6 +554,32 @@ export default function Dashboard() {
               {activeTab === "files" && (
                 <motion.div key="files" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
                   <FileTable files={data.files} />
+                </motion.div>
+              )}
+
+              {activeTab === "timeline" && (
+                <motion.div key="timeline" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+                  {timelineLoading ? (
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-4">
+                        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+                      </div>
+                      <Skeleton className="h-80 rounded-xl" />
+                    </div>
+                  ) : timelineData ? (
+                    <CommitTimeline {...timelineData} />
+                  ) : (
+                    <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-8 text-center">
+                      <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">Timeline data is loading in the background...</p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {activeTab === "recommendations" && (
+                <motion.div key="recommendations" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+                  <RefactorRecommendations files={data.files} />
                 </motion.div>
               )}
 
