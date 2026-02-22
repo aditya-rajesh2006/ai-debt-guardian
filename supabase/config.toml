@@ -1,1 +1,10 @@
 project_id = "zpivmylemisohbrkqxry"
+
+[functions.analyze-repo]
+verify_jwt = false
+
+[functions.analyze-commits]
+verify_jwt = false
+
+[functions.ai-detect]
+verify_jwt = false
