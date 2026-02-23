@@ -52,6 +52,13 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
+            className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>Search</span>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[9px] font-mono">⌘K</kbd>
+          </button>
           <ThemeToggle />
           {user ? (
             <div className="hidden md:flex items-center gap-2">
