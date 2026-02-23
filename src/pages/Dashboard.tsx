@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Brain, Bug, FileCode, GitFork, TrendingUp, Zap, AlertTriangle,
@@ -236,6 +236,20 @@ export default function Dashboard() {
     };
   };
 
+  // Debt velocity
+  const debtVelocity = useMemo(() => {
+    if (!timelineData || timelineData.commits.length < 2) return null;
+    const commits = timelineData.commits;
+    const first = commits[0];
+    const last = commits[commits.length - 1];
+    const delta = (last.techDebt + last.cogDebt) - (first.techDebt + first.cogDebt);
+    const rate = delta / commits.length;
+    if (rate > 0.02) return { label: "Fast Growing", color: "text-destructive", emoji: "🔴" };
+    if (rate > 0.005) return { label: "Moderate", color: "text-accent", emoji: "🟡" };
+    if (rate > -0.005) return { label: "Stable", color: "text-muted-foreground", emoji: "⚪" };
+    return { label: "Improving", color: "text-neon-green", emoji: "🟢" };
+  }, [timelineData]);
+
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "files", label: "Files", icon: Table2 },
@@ -362,20 +376,36 @@ export default function Dashboard() {
               </MetricTooltip>
             </div>
 
-            {/* Debt distribution insight */}
-            {debtDistribution && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-4 flex items-center gap-3"
-              >
-                <Lightbulb className="h-5 w-5 text-primary shrink-0" />
-                <p className="text-sm text-foreground">
-                  <strong className="text-primary">{debtDistribution.pct}%</strong> of your debt comes from just{" "}
-                  <strong className="text-primary">{debtDistribution.count} files</strong> out of {debtDistribution.total} total.
-                </p>
-              </motion.div>
-            )}
+            {/* Debt distribution + velocity */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {debtDistribution && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-4 flex items-center gap-3"
+                >
+                  <Lightbulb className="h-5 w-5 text-primary shrink-0" />
+                  <p className="text-sm text-foreground">
+                    <strong className="text-primary">{debtDistribution.pct}%</strong> of your debt comes from just{" "}
+                    <strong className="text-primary">{debtDistribution.count} files</strong> out of {debtDistribution.total} total.
+                  </p>
+                </motion.div>
+              )}
+              {debtVelocity && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 flex items-center gap-3"
+                >
+                  <TrendingUp className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Debt Velocity</p>
+                    <p className={`text-sm font-bold ${debtVelocity.color}`}>{debtVelocity.emoji} {debtVelocity.label}</p>
+                  </div>
+                </motion.div>
+              )}
+            </div>
 
             {/* Tab content */}
             <AnimatePresence mode="wait">
