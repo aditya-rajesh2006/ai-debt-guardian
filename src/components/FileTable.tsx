@@ -24,7 +24,6 @@ export default function FileTable({ files }: Props) {
       return b.cognitiveDebt - a.cognitiveDebt;
     });
 
-  // Confusion hotspots: high cognitive debt files
   const confusionHotspots = files
     .filter(f => f.cognitiveDebt > 0.6 && f.cyclomaticComplexity > 8)
     .sort((a, b) => b.cognitiveDebt - a.cognitiveDebt)
@@ -32,9 +31,8 @@ export default function FileTable({ files }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Confusion Hotspots */}
       {confusionHotspots.length > 0 && (
-        <div className="rounded-xl border border-neon-purple/20 bg-neon-purple/5 p-4">
+        <div className="rounded-xl border border-neon-purple/20 bg-neon-purple/5 backdrop-blur-sm p-4">
           <div className="flex items-center gap-2 mb-3">
             <Brain className="h-4 w-4 text-neon-purple" />
             <span className="text-xs font-semibold text-foreground">Confusion Hotspots</span>
@@ -45,7 +43,7 @@ export default function FileTable({ files }: Props) {
               <div key={f.file} className="flex items-center gap-3 text-xs">
                 <Flame className="h-3 w-3 text-neon-purple shrink-0" />
                 <span className="font-mono text-foreground truncate flex-1">{f.file.split("/").pop()}</span>
-                <span className="text-muted-foreground">Cognitive: <strong className="text-neon-purple">{(f.cognitiveDebt * 100).toFixed(0)}%</strong></span>
+                <span className="text-muted-foreground">CLI: <strong className="text-neon-purple">{((f.metrics.cli ?? f.cognitiveDebt) * 100).toFixed(0)}%</strong></span>
                 <span className="text-muted-foreground">Complexity: <strong className="text-foreground">{f.cyclomaticComplexity}</strong></span>
               </div>
             ))}
@@ -54,7 +52,7 @@ export default function FileTable({ files }: Props) {
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-foreground">File Analysis</h3>
           <div className="flex items-center gap-2">
@@ -103,9 +101,24 @@ export default function FileTable({ files }: Props) {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden border-t border-border bg-secondary/20"
+                    className="overflow-hidden border-t border-border bg-secondary/10"
                   >
                     <div className="p-4 space-y-4">
+                      {/* AI Detection Summary */}
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">AI Generated Code</span>
+                          <span className="text-lg font-black font-mono text-primary">{(file.aiLikelihood * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
+                          {file.metrics.sus > 0.3 && <span className="rounded bg-primary/10 px-1.5 py-0.5">repetitive patterns</span>}
+                          {file.metrics.crs > 0.3 && <span className="rounded bg-primary/10 px-1.5 py-0.5">redundant comments</span>}
+                          {file.metrics.scs > 0.5 && <span className="rounded bg-primary/10 px-1.5 py-0.5">uniform style</span>}
+                          {file.metrics.ias > 0.3 && <span className="rounded bg-primary/10 px-1.5 py-0.5">generic naming</span>}
+                          {file.metrics.pri > 0.2 && <span className="rounded bg-primary/10 px-1.5 py-0.5">high repetition</span>}
+                        </div>
+                      </div>
+
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-3">
                           <MetricTooltip metric="AI Likelihood"><ScoreBar label="AI Likelihood" value={file.aiLikelihood} /></MetricTooltip>
@@ -114,14 +127,13 @@ export default function FileTable({ files }: Props) {
                           <MetricTooltip metric="Propagation"><ScoreBar label="Propagation" value={file.propagationScore} /></MetricTooltip>
                         </div>
                         <div className="space-y-3">
-                          <MetricTooltip metric="CCD"><ScoreBar label="CCD" value={file.metrics.ccd} /></MetricTooltip>
-                          <MetricTooltip metric="ES"><ScoreBar label="Explainability" value={file.metrics.es} /></MetricTooltip>
-                          <MetricTooltip metric="AES"><ScoreBar label="AI Entropy" value={file.metrics.aes} /></MetricTooltip>
-                          <MetricTooltip metric="RDI"><ScoreBar label="Readability" value={file.metrics.rdi} /></MetricTooltip>
+                          <MetricTooltip metric="CLI"><ScoreBar label="Cognitive Load" value={file.metrics.cli ?? 0} /></MetricTooltip>
+                          <MetricTooltip metric="IAS"><ScoreBar label="Identifier Ambiguity" value={file.metrics.ias ?? 0} /></MetricTooltip>
+                          <MetricTooltip metric="SUS"><ScoreBar label="Structural Uniformity" value={file.metrics.sus ?? 0} /></MetricTooltip>
+                          <MetricTooltip metric="DDP"><ScoreBar label="Defect Density" value={file.metrics.ddp ?? 0} /></MetricTooltip>
                         </div>
                       </div>
 
-                      {/* Issues with color coding */}
                       <div>
                         <p className="text-xs text-muted-foreground mb-2">Issues detected:</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -140,13 +152,12 @@ export default function FileTable({ files }: Props) {
                         <span>Depth: <strong className="text-foreground">{file.nestingDepth}</strong></span>
                       </div>
 
-                      {/* Debt Breakdown Toggle */}
                       <button
                         onClick={() => setShowBreakdown(showBreakdown === file.file ? null : file.file)}
                         className="text-[11px] text-primary hover:underline flex items-center gap-1"
                       >
                         {showBreakdown === file.file ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                        {showBreakdown === file.file ? "Hide" : "Show"} Debt Breakdown
+                        {showBreakdown === file.file ? "Hide" : "Show"} Full Debt Breakdown
                       </button>
 
                       <AnimatePresence>

@@ -15,6 +15,24 @@ export interface FileAnalysis {
     dps: number; // Debt Propagation Score
     dli: number; // Debt Longevity Index
     drf: number; // Dependency Risk Factor
+    // Advanced Technical
+    cp: number;   // Change Proneness
+    ccn: number;  // Code Churn
+    tc: number;   // Temporal Complexity
+    ddp: number;  // Defect Density Proxy
+    mds: number;  // Modularity Degradation Score
+    // Advanced Cognitive
+    cli: number;  // Cognitive Load Index
+    ias: number;  // Identifier Ambiguity Score
+    ags: number;  // Abstraction Gap Score
+    ri: number;   // Readability Index
+    csc: number;  // Context Switching Cost
+    // AI Detection
+    sus: number;  // Structural Uniformity Score
+    tdd: number;  // Token Distribution Divergence
+    pri: number;  // Pattern Repetition Index
+    crs: number;  // Comment Redundancy Score
+    scs: number;  // Style Consistency Score
   };
   linesOfCode: number;
   functions: number;
@@ -114,13 +132,17 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
       propagationScore: rand(0.1, 0.9),
       issues: pickRandom(ISSUE_TYPES, isHighAI ? Math.floor(Math.random() * 4) + 2 : Math.floor(Math.random() * 2) + 1),
       metrics: {
-        ccd: rand(0, 1),
-        es: rand(0, 1),
+        ccd: rand(0, 1), es: rand(0, 1),
         aes: isHighAI ? rand(0.5, 1) : rand(0, 0.4),
-        rdi: rand(0, 1),
-        dps: rand(0, 1),
-        dli: rand(0, 1),
-        drf: rand(0, 1),
+        rdi: rand(0, 1), dps: rand(0, 1), dli: rand(0, 1), drf: rand(0, 1),
+        cp: rand(0, 1), ccn: Math.floor(Math.random() * 400) + 50,
+        tc: rand(0, 1), ddp: rand(0, 1), mds: rand(0, 1),
+        cli: rand(0, 1), ias: rand(0, 1), ags: rand(0, 1),
+        ri: rand(0, 1), csc: rand(0, 1),
+        sus: isHighAI ? rand(0.4, 0.9) : rand(0, 0.3),
+        tdd: rand(0, 0.5), pri: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
+        crs: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
+        scs: isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4),
       },
       linesOfCode: Math.floor(Math.random() * 400) + 50,
       functions: Math.floor(Math.random() * 15) + 2,
@@ -137,8 +159,7 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
     let t = Math.floor(Math.random() * numFiles);
     if (t === s) t = (t + 1) % numFiles;
     propagation.push({
-      source: files[s],
-      target: files[t],
+      source: files[s], target: files[t],
       weight: rand(0.2, 1),
       type: types[Math.floor(Math.random() * types.length)],
     });
