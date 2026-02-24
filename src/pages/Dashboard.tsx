@@ -16,6 +16,7 @@ import MetricTooltip from "@/components/MetricTooltip";
 import HistoryPanel from "@/components/HistoryPanel";
 import CommitTimeline from "@/components/CommitTimeline";
 import RefactorRecommendations from "@/components/RefactorRecommendations";
+import ReportDownload from "@/components/ReportDownload";
 import type { AnalysisResult, CommitTimelineData } from "@/lib/mockAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -178,15 +179,28 @@ export default function Dashboard() {
   const radarData = data ? (() => {
     const files = data.files;
     const avg = (key: keyof typeof files[0]['metrics']) =>
-      Math.round(files.reduce((s, f) => s + f.metrics[key], 0) / files.length * 100);
+      Math.round(files.reduce((s, f) => s + (f.metrics[key] ?? 0), 0) / files.length * 100);
     return [
       { metric: "DPS", value: avg("dps") },
       { metric: "DLI", value: avg("dli") },
-      { metric: "DRF", value: avg("drf") },
+      { metric: "CLI", value: avg("cli") },
       { metric: "CCD", value: avg("ccd") },
-      { metric: "ES", value: avg("es") },
-      { metric: "AES", value: avg("aes") },
-      { metric: "RDI", value: avg("rdi") },
+      { metric: "IAS", value: avg("ias") },
+      { metric: "SUS", value: avg("sus") },
+      { metric: "RI", value: avg("ri") },
+    ];
+  })() : [];
+
+  const aiRadarData = data ? (() => {
+    const files = data.files;
+    const avg = (key: keyof typeof files[0]['metrics']) =>
+      Math.round(files.reduce((s, f) => s + (f.metrics[key] ?? 0), 0) / files.length * 100);
+    return [
+      { metric: "SUS", value: avg("sus") },
+      { metric: "TDD", value: avg("tdd") },
+      { metric: "PRI", value: avg("pri") },
+      { metric: "CRS", value: avg("crs") },
+      { metric: "SCS", value: avg("scs") },
     ];
   })() : [];
 
@@ -327,6 +341,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-bold text-foreground font-mono">{data.repoName}</h2>
+                <ReportDownload data={data} />
                 {data.stars != null && data.stars > 0 && (
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                     <Star className="h-3 w-3 text-accent" /> {data.stars}
@@ -535,19 +550,36 @@ export default function Dashboard() {
                     </motion.div>
                   </div>
 
-                  {/* Radar + Heatmap */}
-                  <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Radar + AI Detection + Heatmap */}
+                  <div className="grid gap-6 lg:grid-cols-3">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover">
-                      <h3 className="mb-4 text-sm font-semibold text-foreground">Metrics Radar (Debt DNA)</h3>
-                      <ResponsiveContainer width="100%" height={260}>
+                      <h3 className="mb-4 text-sm font-semibold text-foreground">Debt DNA Radar</h3>
+                      <ResponsiveContainer width="100%" height={220}>
                         <RadarChart data={radarData}>
                           <PolarGrid stroke="hsl(var(--border))" />
-                          <PolarAngleAxis dataKey="metric" tick={{ fill: tickColor, fontSize: 10 }} />
-                          <PolarRadiusAxis tick={{ fill: tickColor, fontSize: 8 }} domain={[0, 100]} />
+                          <PolarAngleAxis dataKey="metric" tick={{ fill: tickColor, fontSize: 9 }} />
+                          <PolarRadiusAxis tick={{ fill: tickColor, fontSize: 7 }} domain={[0, 100]} />
                           <Radar name="Score" dataKey="value" stroke="hsl(174, 72%, 52%)" fill="hsl(174, 72%, 52%)" fillOpacity={0.2} />
                           <Tooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, fontSize: 11 }} />
                         </RadarChart>
                       </ResponsiveContainer>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }} className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-4 card-hover">
+                      <h3 className="mb-2 text-sm font-semibold text-foreground">🤖 AI Detection Radar</h3>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <RadarChart data={aiRadarData}>
+                          <PolarGrid stroke="hsl(var(--border))" />
+                          <PolarAngleAxis dataKey="metric" tick={{ fill: tickColor, fontSize: 9 }} />
+                          <PolarRadiusAxis tick={{ fill: tickColor, fontSize: 7 }} domain={[0, 100]} />
+                          <Radar name="AI Score" dataKey="value" stroke="hsl(270, 72%, 62%)" fill="hsl(270, 72%, 62%)" fillOpacity={0.25} />
+                          <Tooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: 8, fontSize: 11 }} />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                      <div className="text-center mt-1">
+                        <span className="text-2xl font-black font-mono text-primary">{(data.summary.avgAiLikelihood * 100).toFixed(0)}%</span>
+                        <p className="text-[10px] text-muted-foreground">AI Generated Code</p>
+                      </div>
                     </motion.div>
 
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover">

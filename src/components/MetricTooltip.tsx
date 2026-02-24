@@ -2,6 +2,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Info } from "lucide-react";
 
 const METRIC_EXPLANATIONS: Record<string, string> = {
+  // Original metrics
   "DPS": "Debt Propagation Score — Measures how widely technical debt spreads across files.",
   "CCD": "Cognitive Complexity Drift — How complex control flow impacts readability over time.",
   "ES": "Explainability Score — How well variables and functions are named for clarity.",
@@ -14,7 +15,26 @@ const METRIC_EXPLANATIONS: Record<string, string> = {
   "Cognitive Debt": "Mental effort required to understand code — naming, structure, and readability.",
   "Propagation": "How much this file's issues spread to other connected files.",
   "High Risk Files": "Files with high AI likelihood AND high technical debt — refactor these first.",
-  "Refactor Priority Score": "Combined urgency score (0–100) based on average tech + cognitive debt. Higher = refactor sooner.",
+  "Refactor Priority Score": "Combined urgency score (0–100) based on average tech + cognitive debt.",
+  "Debt Confidence Score": "How reliable the detection is based on issue density and metric consistency.",
+  // Advanced Technical
+  "CP": "Change Proneness — How likely this file is to require frequent modifications.",
+  "CCN": "Code Churn — Total lines added + deleted, indicating instability.",
+  "TC": "Temporal Complexity — Frequency of changes multiplied by code complexity.",
+  "DDP": "Defect Density Proxy — Number of detected issues per 100 lines of code.",
+  "MDS": "Modularity Degradation Score — Ratio of coupling to cohesion; high = poor modularization.",
+  // Advanced Cognitive
+  "CLI": "Cognitive Load Index — Combined nesting depth, branching factor, and function length.",
+  "IAS": "Identifier Ambiguity Score — Ratio of unclear/short variable names to total identifiers.",
+  "AGS": "Abstraction Gap Score — Mismatch between function naming clarity and implementation complexity.",
+  "RI": "Readability Index — Normalized score of line length, nesting, and naming quality.",
+  "CSC": "Context Switching Cost — Number of dependencies + function calls a developer must track.",
+  // AI Detection
+  "SUS": "Structural Uniformity Score — How similar function structures are (high = AI-like).",
+  "TDD": "Token Distribution Divergence — Deviation from natural human token usage patterns.",
+  "PRI": "Pattern Repetition Index — Frequency of repeated logic blocks across the codebase.",
+  "CRS": "Comment Redundancy Score — Comments that explain obvious code (AI hallmark).",
+  "SCS": "Style Consistency Score — Suspiciously uniform formatting typical of AI generation.",
 };
 
 interface Props {
