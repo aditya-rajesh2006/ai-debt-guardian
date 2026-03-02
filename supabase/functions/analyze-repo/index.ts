@@ -59,9 +59,10 @@ interface PropagationEdge {
 
 const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN") || "";
 
-async function fetchGitHub(url: string) {
+async function fetchGitHub(url: string, token?: string) {
   const headers: Record<string, string> = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'AIDebtTracker' };
-  if (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;
+  const t = token || GITHUB_TOKEN;
+  if (t) headers['Authorization'] = `token ${t}`;
   const res = await fetch(url, { headers });
   if (!res.ok) {
     const body = await res.text();
@@ -446,9 +447,9 @@ function buildPropagationGraph(files: FileAnalysis[], fileContents: Map<string, 
   return edges.slice(0, 35);
 }
 
-async function fetchRepoFiles(owner: string, repo: string, path = ''): Promise<GitHubFile[]> {
+async function fetchRepoFiles(owner: string, repo: string, token?: string, path = ''): Promise<GitHubFile[]> {
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-  const items = await fetchGitHub(url);
+  const items = await fetchGitHub(url, token);
   let files: GitHubFile[] = [];
 
   for (const item of items) {
@@ -458,7 +459,7 @@ async function fetchRepoFiles(owner: string, repo: string, path = ''): Promise<G
       !['node_modules', 'vendor', 'dist', 'build', '.git', '__pycache__', 'coverage'].includes(item.name)) {
       if (files.length < 40) {
         try {
-          const subFiles = await fetchRepoFiles(owner, repo, item.path);
+          const subFiles = await fetchRepoFiles(owner, repo, token, item.path);
           files = files.concat(subFiles);
         } catch { /* skip */ }
       }
@@ -472,12 +473,15 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { repoUrl } = await req.json();
+  const { repoUrl, githubToken } = await req.json();
     if (!repoUrl) throw new Error('repoUrl is required');
 
+    // Use user-provided token for private repos (session-only, never stored)
+    const effectiveToken = githubToken || GITHUB_TOKEN;
+
     const { owner, repo } = parseOwnerRepo(repoUrl);
-    const repoInfo = await fetchGitHub(`https://api.github.com/repos/${owner}/${repo}`);
-    const ghFiles = await fetchRepoFiles(owner, repo);
+    const repoInfo = await fetchGitHub(`https://api.github.com/repos/${owner}/${repo}`, effectiveToken);
+    const ghFiles = await fetchRepoFiles(owner, repo, effectiveToken);
     if (ghFiles.length === 0) throw new Error('No code files found in repository');
 
     const fileContentsMap = new Map<string, string>();
