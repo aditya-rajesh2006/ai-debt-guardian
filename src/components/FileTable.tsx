@@ -105,17 +105,21 @@ export default function FileTable({ files }: Props) {
                   >
                     <div className="p-4 space-y-4">
                       {/* AI Detection Summary */}
-                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      <div className="rounded-lg border border-neon-purple/20 bg-neon-purple/5 p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">AI Generated Code</span>
-                          <span className="text-lg font-black font-mono text-primary">{(file.aiLikelihood * 100).toFixed(0)}%</span>
+                          <span className="text-[10px] font-semibold text-neon-purple uppercase tracking-wider">AI Generated Code</span>
+                          <span className="text-lg font-black font-mono text-neon-purple">{(file.aiLikelihood * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] mb-2">
+                          <span className="text-muted-foreground">AI Debt Contribution (ADCS)</span>
+                          <span className="font-mono text-neon-purple font-semibold">{file.aiDebtContribution}%</span>
                         </div>
                         <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
-                          {file.metrics.sus > 0.3 && <span className="rounded bg-primary/10 px-1.5 py-0.5">repetitive patterns</span>}
-                          {file.metrics.crs > 0.3 && <span className="rounded bg-primary/10 px-1.5 py-0.5">redundant comments</span>}
-                          {file.metrics.scs > 0.5 && <span className="rounded bg-primary/10 px-1.5 py-0.5">uniform style</span>}
-                          {file.metrics.ias > 0.3 && <span className="rounded bg-primary/10 px-1.5 py-0.5">generic naming</span>}
-                          {file.metrics.pri > 0.2 && <span className="rounded bg-primary/10 px-1.5 py-0.5">high repetition</span>}
+                          {file.metrics.sus > 0.3 && <span className="rounded bg-neon-purple/10 px-1.5 py-0.5 text-neon-purple">repetitive patterns</span>}
+                          {file.metrics.crs > 0.3 && <span className="rounded bg-neon-purple/10 px-1.5 py-0.5 text-neon-purple">redundant comments</span>}
+                          {file.metrics.scs > 0.5 && <span className="rounded bg-neon-purple/10 px-1.5 py-0.5 text-neon-purple">uniform style</span>}
+                          {file.metrics.ias > 0.3 && <span className="rounded bg-neon-purple/10 px-1.5 py-0.5 text-neon-purple">generic naming</span>}
+                          {file.metrics.pri > 0.2 && <span className="rounded bg-neon-purple/10 px-1.5 py-0.5 text-neon-purple">high repetition</span>}
                         </div>
                       </div>
 
@@ -137,11 +141,22 @@ export default function FileTable({ files }: Props) {
                       <div>
                         <p className="text-xs text-muted-foreground mb-2">Issues detected:</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {file.issues.map((issue) => (
-                            <span key={issue} className="rounded-md bg-destructive/10 border border-destructive/20 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                              {issue}
-                            </span>
-                          ))}
+                          {file.issues.map((issue) => {
+                            const aiPatterns = ['structural uniformity', 'pattern repetition', 'redundant comments', 'uniform formatting', 'generic naming', 'consistent style', 'sorted imports', 'type annotations', 'repeated logic', 'inconsistent naming', 'over-commenting', 'excessive comments'];
+                            const isAI = aiPatterns.some(p => issue.toLowerCase().includes(p));
+                            return (
+                              <span
+                                key={issue}
+                                className={`rounded-md px-2 py-0.5 text-[10px] font-medium border ${
+                                  isAI
+                                    ? 'bg-neon-purple/10 border-neon-purple/20 text-neon-purple'
+                                    : 'bg-destructive/10 border-destructive/20 text-destructive'
+                                }`}
+                              >
+                                {isAI ? '🤖 ' : ''}{issue}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
 

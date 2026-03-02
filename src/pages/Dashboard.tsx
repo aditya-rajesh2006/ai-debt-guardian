@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Brain, Bug, FileCode, GitFork, TrendingUp, Zap, AlertTriangle,
   RefreshCw, Star, Code, BarChart3, Network, Table2, Flame, Target, Lightbulb,
-  Clock, Wrench, Shield
+  Clock, Wrench, Shield, Bot
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -123,9 +123,9 @@ export default function Dashboard() {
     }
   }, []);
 
-  const handleAnalyze = useCallback(async (url: string) => {
+  const handleAnalyze = useCallback(async (url: string, githubToken?: string) => {
     const trimmed = url.trim();
-    if (analysisCache.has(trimmed)) {
+    if (!githubToken && analysisCache.has(trimmed)) {
       setData(analysisCache.get(trimmed)!);
       setError(null);
       fetchTimeline(trimmed);
@@ -139,7 +139,7 @@ export default function Dashboard() {
     startProgress();
     try {
       const { data: result, error: fnError } = await supabase.functions.invoke("analyze-repo", {
-        body: { repoUrl: trimmed },
+        body: { repoUrl: trimmed, githubToken },
       });
       if (fnError) throw new Error(fnError.message);
       if (result?.error) throw new Error(result.error);
@@ -147,7 +147,6 @@ export default function Dashboard() {
       analysisCache.set(trimmed, analysis);
       setData(analysis);
       saveToHistory(analysis, trimmed);
-      // Fetch timeline in background
       fetchTimeline(trimmed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
@@ -264,6 +263,21 @@ export default function Dashboard() {
     return { label: "Improving", color: "text-neon-green", emoji: "🟢" };
   }, [timelineData]);
 
+  // AI debt attribution
+  const aiDebtStats = useMemo(() => {
+    if (!data) return null;
+    const totalTech = data.files.reduce((s, f) => s + f.technicalDebt, 0);
+    const totalCog = data.files.reduce((s, f) => s + f.cognitiveDebt, 0);
+    const aiTech = data.files.reduce((s, f) => s + f.technicalDebt * f.aiLikelihood, 0);
+    const aiCog = data.files.reduce((s, f) => s + f.cognitiveDebt * f.aiLikelihood, 0);
+    const avgADCS = data.files.reduce((s, f) => s + f.aiLikelihood * (f.technicalDebt + f.cognitiveDebt), 0) / data.files.length;
+    return {
+      aiTechPct: totalTech > 0 ? Math.round(aiTech / totalTech * 100) : 0,
+      aiCogPct: totalCog > 0 ? Math.round(aiCog / totalCog * 100) : 0,
+      avgADCS: Math.round(avgADCS * 100),
+    };
+  }, [data]);
+
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "files", label: "Files", icon: Table2 },
@@ -279,8 +293,12 @@ export default function Dashboard() {
 
       <div className="relative z-10 container pt-24 pb-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-neon-purple/30 bg-neon-purple/10 px-4 py-1.5 mb-4">
+            <Bot className="h-3.5 w-3.5 text-neon-purple" />
+            <span className="text-xs font-semibold text-neon-purple">AI-Induced Debt Detection</span>
+          </div>
           <h1 className="text-3xl font-black text-foreground">Analysis Dashboard</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Analyze any public GitHub repository for AI-induced debt — strict detection mode</p>
+          <p className="mt-2 text-sm text-muted-foreground">Detect, measure, and fix technical & cognitive debt caused by AI-generated code</p>
         </motion.div>
 
         <RepoInput onAnalyze={handleAnalyze} loading={loading} />
@@ -372,16 +390,34 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* AI Debt Contribution Banner */}
+            {aiDebtStats && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-neon-purple/30 bg-neon-purple/5 backdrop-blur-sm p-5"
+              >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Bot className="h-6 w-6 text-neon-purple" />
+                  <p className="text-sm text-foreground">
+                    AI-generated code contributes <strong className="text-neon-purple text-xl font-mono">{aiDebtStats.aiTechPct}%</strong> of total technical debt
+                    and <strong className="text-neon-purple text-xl font-mono">{aiDebtStats.aiCogPct}%</strong> of cognitive debt.
+                  </p>
+                  <span className="ml-auto text-xs text-muted-foreground">ADCS: <strong className="text-neon-purple font-mono">{aiDebtStats.avgADCS}</strong></span>
+                </div>
+              </motion.div>
+            )}
+
             {/* Summary Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <MetricTooltip metric="AI Likelihood">
-                <div className="w-full"><MetricCard title="AI Likelihood" value={data.summary.avgAiLikelihood * 100} suffix="%" icon={Zap} color="cyan" delay={0} description="Avg across files" /></div>
+                <div className="w-full"><MetricCard title="AI Code %" value={data.summary.avgAiLikelihood * 100} suffix="%" icon={Bot} color="purple" delay={0} description="AI-generated code" /></div>
               </MetricTooltip>
               <MetricTooltip metric="Technical Debt">
-                <div className="w-full"><MetricCard title="Technical Debt" value={data.summary.avgTechnicalDebt * 100} suffix="%" icon={Bug} color="amber" delay={0.1} description="Strict detection" /></div>
+                <div className="w-full"><MetricCard title="AI Tech Debt" value={aiDebtStats?.aiTechPct ?? 0} suffix="%" icon={Bug} color="amber" delay={0.1} description="AI-caused tech debt" /></div>
               </MetricTooltip>
               <MetricTooltip metric="Cognitive Debt">
-                <div className="w-full"><MetricCard title="Cognitive Debt" value={data.summary.avgCognitiveDebt * 100} suffix="%" icon={Brain} color="purple" delay={0.2} description="Readability impact" /></div>
+                <div className="w-full"><MetricCard title="AI Cog Debt" value={aiDebtStats?.aiCogPct ?? 0} suffix="%" icon={Brain} color="purple" delay={0.2} description="AI-caused cognitive debt" /></div>
               </MetricTooltip>
               <MetricTooltip metric="High Risk Files">
                 <div className="w-full"><MetricCard title="High Risk" value={data.summary.highRiskFiles} icon={AlertTriangle} color="red" delay={0.3} description={`of ${data.totalFiles} files`} /></div>
