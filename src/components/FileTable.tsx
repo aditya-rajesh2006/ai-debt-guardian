@@ -110,9 +110,20 @@ export default function FileTable({ files }: Props) {
                           <span className="text-[10px] font-semibold text-neon-purple uppercase tracking-wider">AI Generated Code</span>
                           <span className="text-lg font-black font-mono text-neon-purple">{(file.aiLikelihood * 100).toFixed(0)}%</span>
                         </div>
-                        <div className="flex items-center justify-between text-[10px] mb-2">
+                        <div className="flex items-center justify-between text-[10px] mb-1">
                           <span className="text-muted-foreground">AI Debt Contribution (ADCS)</span>
                           <span className="font-mono text-neon-purple font-semibold">{file.aiDebtContribution}%</span>
+                        </div>
+                        {file.modelAttribution && (
+                          <div className="flex items-center justify-between text-[10px] mb-1">
+                            <span className="text-muted-foreground">Attributed Model</span>
+                            <span className="font-mono text-primary font-semibold">{file.modelAttribution.model_id} ({(file.modelAttribution.confidence * 100).toFixed(0)}%)</span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-3 gap-2 text-[10px] text-muted-foreground mt-2 mb-2">
+                          <span>AI Tech Debt: <strong className="text-neon-purple">{(file.aiTechnicalDebt * 100).toFixed(0)}%</strong></span>
+                          <span>AI Cog Debt: <strong className="text-neon-purple">{(file.aiCognitiveDebt * 100).toFixed(0)}%</strong></span>
+                          <span>AI Total: <strong className="text-neon-purple">{(file.aiTotalDebt * 100).toFixed(0)}%</strong></span>
                         </div>
                         <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
                           {file.metrics.sus > 0.3 && <span className="rounded bg-neon-purple/10 px-1.5 py-0.5 text-neon-purple">repetitive patterns</span>}

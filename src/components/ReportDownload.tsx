@@ -37,6 +37,22 @@ function generateMarkdownReport(data: AnalysisResult): string {
     avgMetrics[k] = Math.round((avgMetrics[k] / data.files.length) * 100) / 100;
   }
 
+  const aiFilesSection = topAIFiles.map((f, i) => {
+    const model = f.modelAttribution?.model_id ?? 'N/A';
+    const conf = ((f.modelAttribution?.confidence ?? 0) * 100).toFixed(0);
+    const aiTD = (f.aiTechnicalDebt * 100).toFixed(0);
+    const aiCD = (f.aiCognitiveDebt * 100).toFixed(0);
+    return `${i + 1}. **${f.file}** — AI Debt: ${f.aiDebtContribution}%, AI: ${(f.aiLikelihood * 100).toFixed(0)}%, Model: ${model} (${conf}%)\n   - AI Tech Debt: ${aiTD}%, AI Cog Debt: ${aiCD}%\n   - Issues: ${f.issues.join(', ')}`;
+  }).join('\n');
+
+  const riskFilesSection = topFiles.map((f, i) =>
+    `${i + 1}. **${f.file}** — AI: ${(f.aiLikelihood * 100).toFixed(0)}%, Tech: ${(f.technicalDebt * 100).toFixed(0)}%, Cog: ${(f.cognitiveDebt * 100).toFixed(0)}%\n   - Issues: ${f.issues.join(', ')}`
+  ).join('\n');
+
+  const recsSection = s.topRefactorTargets.map((f, i) =>
+    `${i + 1}. Refactor \`${f}\` — highest combined debt`
+  ).join('\n');
+
   return `# 🤖 AI-Induced Debt Analysis Report: ${data.repoName}
 
 > This report focuses on identifying and measuring technical & cognitive debt specifically caused by AI-generated code.
@@ -47,8 +63,25 @@ function generateMarkdownReport(data: AnalysisResult): string {
 | AI-Generated Code | ${(s.avgAiLikelihood * 100).toFixed(1)}% |
 | AI → Technical Debt | ${aiTechPct}% |
 | AI → Cognitive Debt | ${aiCogPct}% |
+| AI Total Debt | ${((data.ai_total_debt ?? 0) * 100).toFixed(1)}% |
 | High Risk Files | ${s.highRiskFiles} |
 | Total Issues | ${s.totalIssues} |
+
+## 🧠 Model Attribution
+| Attribute | Value |
+|-----------|-------|
+| Dominant Model | ${data.model_attribution?.model_id ?? 'N/A'} |
+| Model Confidence | ${((data.model_attribution?.confidence ?? 0) * 100).toFixed(0)}% |
+| AI Technical Debt (formula) | ${((data.ai_technical_debt ?? 0) * 100).toFixed(1)}% |
+| AI Cognitive Debt (formula) | ${((data.ai_cognitive_debt ?? 0) * 100).toFixed(1)}% |
+
+> Model attribution is probabilistic and based on structural fingerprinting.
+
+### Formulas
+- **AI_signal** = AI_likelihood × ModelConfidence
+- **AI_TDS** = AI_signal × (0.35×CC + 0.25×ND + 0.20×Dup + 0.20×Churn) + AI_signal × DPS
+- **AI_CDS** = AI_signal × (0.30×CLI + 0.25×IAS + 0.20×AGS + 0.15×CSC + 0.10×Entropy) + AI_signal × ModelRisk
+- **AI_Total_Debt** = AI_TD_Final + AI_CD_Final
 
 ## Overview
 | Metric | Value |
@@ -60,23 +93,17 @@ function generateMarkdownReport(data: AnalysisResult): string {
 | Avg Cognitive Debt | ${(s.avgCognitiveDebt * 100).toFixed(1)}% |
 
 ## 🤖 AI Code Analysis
-AI-generated code is detected using 5 research-inspired metrics:
-- **SUS** (Structural Uniformity Score): ${avgMetrics.sus?.toFixed(2) || 'N/A'} — similarity across functions
-- **TDD** (Token Distribution Divergence): ${avgMetrics.tdd?.toFixed(2) || 'N/A'} — deviation from human token usage
-- **PRI** (Pattern Repetition Index): ${avgMetrics.pri?.toFixed(2) || 'N/A'} — repeated logic blocks
-- **CRS** (Comment Redundancy Score): ${avgMetrics.crs?.toFixed(2) || 'N/A'} — obvious comment explanations
-- **SCS** (Style Consistency Score): ${avgMetrics.scs?.toFixed(2) || 'N/A'} — uniform formatting
-
-**Final AI % = weighted(SUS×0.25 + PRI×0.2 + CRS×0.2 + IAS×0.15 + entropy×0.2)**
+- **SUS** (Structural Uniformity Score): ${avgMetrics.sus?.toFixed(2) || 'N/A'}
+- **TDD** (Token Distribution Divergence): ${avgMetrics.tdd?.toFixed(2) || 'N/A'}
+- **PRI** (Pattern Repetition Index): ${avgMetrics.pri?.toFixed(2) || 'N/A'}
+- **CRS** (Comment Redundancy Score): ${avgMetrics.crs?.toFixed(2) || 'N/A'}
+- **SCS** (Style Consistency Score): ${avgMetrics.scs?.toFixed(2) || 'N/A'}
 
 ## 🔴 Top AI-Problematic Files
-${topAIFiles.map((f, i) => `${i + 1}. **${f.file}** — AI Debt: ${f.aiDebtContribution}%, AI: ${(f.aiLikelihood * 100).toFixed(0)}%
-   - Issues: ${f.issues.join(', ')}
-   - ADCS: ${(f.aiLikelihood * (f.technicalDebt + f.cognitiveDebt)).toFixed(2)}`).join('\n')}
+${aiFilesSection}
 
 ## 🔥 Top Risk Files (Combined Debt)
-${topFiles.map((f, i) => `${i + 1}. **${f.file}** — AI: ${(f.aiLikelihood * 100).toFixed(0)}%, Tech: ${(f.technicalDebt * 100).toFixed(0)}%, Cog: ${(f.cognitiveDebt * 100).toFixed(0)}%
-   - Issues: ${f.issues.join(', ')}`).join('\n')}
+${riskFilesSection}
 
 ## 🔧 Technical Debt Summary
 - **CP** (Change Proneness): ${avgMetrics.cp?.toFixed(2) || 'N/A'}
@@ -92,12 +119,18 @@ ${topFiles.map((f, i) => `${i + 1}. **${f.file}** — AI: ${(f.aiLikelihood * 10
 - **CSC** (Context Switching Cost): ${avgMetrics.csc?.toFixed(2) || 'N/A'}
 
 ## 💡 Recommendations
-${s.topRefactorTargets.map((f, i) => `${i + 1}. Refactor \`${f}\` — highest combined debt`).join('\n')}
+${recsSection}
+
+## ⚠️ Limitations
+- Model attribution is probabilistic and based on likelihood comparison
+- Accuracy decreases if code has been heavily edited post-generation
+- Fine-tuned or custom models may reduce detection reliability
 
 ---
-*Generated by AI Debt Tracker — focused on AI-induced technical & cognitive debt*
+*Generated by AI Debt Tracker — AI-induced debt detection with model attribution*
 `;
 }
+
 function downloadFile(content: string, filename: string, type: string) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
