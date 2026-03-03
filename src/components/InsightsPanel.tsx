@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, Brain, GitFork, Wrench, Bot, Flame } from "lucide-react";
+import { AlertTriangle, Brain, GitFork, Wrench, Bot, Flame, Cpu } from "lucide-react";
+import MetricTooltip from "./MetricTooltip";
 import type { AnalysisResult } from "@/lib/mockAnalysis";
 
 interface Props {
@@ -18,6 +19,15 @@ export default function InsightsPanel({ data }: Props) {
   const aiCogDebt = data.files.reduce((s, f) => s + f.cognitiveDebt * f.aiLikelihood, 0);
   const aiTechPct = totalTechDebt > 0 ? Math.round(aiTechDebt / totalTechDebt * 100) : 0;
   const aiCogPct = totalCogDebt > 0 ? Math.round(aiCogDebt / totalCogDebt * 100) : 0;
+
+  // Model attribution summary
+  const modelCounts = new Map<string, number>();
+  for (const f of data.files) {
+    if (f.modelAttribution?.model_id) {
+      modelCounts.set(f.modelAttribution.model_id, (modelCounts.get(f.modelAttribution.model_id) || 0) + 1);
+    }
+  }
+  const topModels = [...modelCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
 
   const sections = [
     {
@@ -98,6 +108,47 @@ export default function InsightsPanel({ data }: Props) {
           </div>
         </div>
       </motion.div>
+
+      {/* Model Attribution Panel */}
+      {data.model_attribution && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="rounded-xl border border-primary/30 bg-primary/5 backdrop-blur-sm p-5"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Cpu className="h-5 w-5 text-primary" />
+            <MetricTooltip metric="Model Attribution">
+              <h3 className="text-sm font-bold text-foreground">Model Attribution</h3>
+            </MetricTooltip>
+          </div>
+          <div className="flex items-center gap-4 flex-wrap mb-3">
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Dominant Model</p>
+              <p className="text-lg font-black font-mono text-primary">{data.model_attribution.model_id}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Confidence</p>
+              <p className="text-lg font-black font-mono text-primary">{(data.model_attribution.confidence * 100).toFixed(0)}%</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">AI Total Debt</p>
+              <p className="text-lg font-black font-mono text-neon-purple">{(data.ai_total_debt * 100).toFixed(0)}%</p>
+            </div>
+          </div>
+          {topModels.length > 1 && (
+            <div className="flex flex-wrap gap-2 text-[10px]">
+              {topModels.map(([model, count]) => (
+                <span key={model} className="rounded-md bg-primary/10 border border-primary/20 px-2 py-1 text-primary font-mono">
+                  {model}: {count} files
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground mt-2 italic">⚠️ Model attribution is probabilistic and based on structural fingerprinting.</p>
+        </motion.div>
+      )}
 
       {/* AI vs Human Comparison */}
       <motion.div

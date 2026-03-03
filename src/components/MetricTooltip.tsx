@@ -35,6 +35,14 @@ const METRIC_EXPLANATIONS: Record<string, string> = {
   "PRI": "Pattern Repetition Index — Frequency of repeated logic blocks across the codebase.",
   "CRS": "Comment Redundancy Score — Comments that explain obvious code (AI hallmark).",
   "SCS": "Style Consistency Score — Suspiciously uniform formatting typical of AI generation.",
+  // Model Attribution
+  "Model Attribution": "Probabilistic estimate of which AI model generated the code, based on structural fingerprinting and token entropy profiling.",
+  "Model Confidence": "How confident the attribution is — higher values mean stronger structural match to a known model's patterns.",
+  "Model Risk": "Empirical maintainability risk associated with the attributed model. Higher = more likely to produce debt.",
+  "AI Signal": "Combined score: AI_likelihood × ModelConfidence. Weights the AI-specific debt formulas.",
+  "AI Tech Debt (Formula)": "AI_TDS = AI_signal × (0.35×CC + 0.25×ND + 0.20×Dup + 0.20×Churn) + AI_signal × DPS",
+  "AI Cog Debt (Formula)": "AI_CDS = AI_signal × (0.30×CLI + 0.25×IAS + 0.20×AGS + 0.15×CSC + 0.10×Entropy) + AI_signal × ModelRisk",
+  "AI Total Debt": "AI_TD_Final + AI_CD_Final — total system debt attributable to AI-generated code.",
 };
 
 interface Props {
