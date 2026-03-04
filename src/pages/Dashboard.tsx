@@ -263,7 +263,7 @@ export default function Dashboard() {
     return { label: "Improving", color: "text-neon-green", emoji: "🟢" };
   }, [timelineData]);
 
-  // AI debt attribution (updated with model attribution formulas)
+  // AI debt attribution
   const aiDebtStats = useMemo(() => {
     if (!data) return null;
     const totalTech = data.files.reduce((s, f) => s + f.technicalDebt, 0);
@@ -275,10 +275,6 @@ export default function Dashboard() {
       aiTechPct: totalTech > 0 ? Math.round(aiTech / totalTech * 100) : 0,
       aiCogPct: totalCog > 0 ? Math.round(aiCog / totalCog * 100) : 0,
       avgADCS: Math.round(avgADCS * 100),
-      aiPct: data.ai_percentage ?? Math.round(data.summary.avgAiLikelihood * 100),
-      modelId: data.model_attribution?.model_id ?? 'unknown',
-      modelConf: data.model_attribution?.confidence ?? 0,
-      aiTotalDebt: data.ai_total_debt ?? 0,
     };
   }, [data]);
 
@@ -408,17 +404,6 @@ export default function Dashboard() {
                     and <strong className="text-neon-purple text-xl font-mono">{aiDebtStats.aiCogPct}%</strong> of cognitive debt.
                   </p>
                   <span className="ml-auto text-xs text-muted-foreground">ADCS: <strong className="text-neon-purple font-mono">{aiDebtStats.avgADCS}</strong></span>
-                </div>
-                <div className="flex items-center gap-4 mt-3 flex-wrap text-xs">
-                  <MetricTooltip metric="Model Attribution">
-                    <span className="text-muted-foreground">Model: <strong className="text-primary font-mono">{aiDebtStats.modelId}</strong></span>
-                  </MetricTooltip>
-                  <MetricTooltip metric="Model Confidence">
-                    <span className="text-muted-foreground">Confidence: <strong className="text-primary font-mono">{(aiDebtStats.modelConf * 100).toFixed(0)}%</strong></span>
-                  </MetricTooltip>
-                  <MetricTooltip metric="AI Total Debt">
-                    <span className="text-muted-foreground">AI Total Debt: <strong className="text-neon-purple font-mono">{(aiDebtStats.aiTotalDebt * 100).toFixed(0)}%</strong></span>
-                  </MetricTooltip>
                 </div>
               </motion.div>
             )}

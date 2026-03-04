@@ -1,6 +1,6 @@
 # 🧠 AI Debt Tracker
 
-**AI Debt Tracker** is a comprehensive code analysis platform that detects, measures, and visualizes AI-induced technical debt in GitHub repositories. It goes beyond traditional static analysis by identifying patterns specific to AI-generated code, attributing code to specific AI models, and tracking how debt propagates across your codebase.
+**AI Debt Tracker** is a comprehensive code analysis platform that detects, measures, and visualizes AI-induced technical debt in GitHub repositories. It goes beyond traditional static analysis by identifying patterns specific to AI-generated code and tracking how debt propagates across your codebase.
 
 ## 🌐 Live App
 
@@ -14,14 +14,12 @@
 
 1. **Repository Ingestion** — Fetches source files from any public GitHub repo via the GitHub API (up to 40 code files)
 2. **Pattern Detection** — Runs 14+ heuristic checks on each file for AI-generated code patterns
-3. **Model Attribution** — Estimates which AI model generated each file using structural fingerprinting
-4. **Technical Debt Scoring** — Measures complexity, nesting, duplication, file size, and modularization
-5. **Cognitive Debt Analysis** — Evaluates naming clarity, comment usefulness, readability, and abstraction consistency
-6. **AI-Specific Debt Formulas** — Computes AI_TDS and AI_CDS using model-aware signal weighting
-7. **Propagation Graph** — Maps import dependencies and shared-pattern connections between files
-8. **Commit Timeline** — Analyzes the last N commits to track debt evolution, detect spikes, and identify contributors
-9. **AI-Powered Detection** — Uses Lovable AI (Gemini) to verify AI-generated code signals with LLM-based analysis
-10. **Recommendations Engine** — Generates step-by-step refactor plans based on detected issues
+3. **Technical Debt Scoring** — Measures complexity, nesting, duplication, file size, and modularization
+4. **Cognitive Debt Analysis** — Evaluates naming clarity, comment usefulness, readability, and abstraction consistency
+5. **Propagation Graph** — Maps import dependencies and shared-pattern connections between files
+6. **Commit Timeline** — Analyzes the last N commits to track debt evolution, detect spikes, and identify contributors
+7. **AI-Powered Detection** — Uses Lovable AI (Gemini) to verify AI-generated code signals with LLM-based analysis
+8. **Recommendations Engine** — Generates step-by-step refactor plans based on detected issues
 
 ---
 
@@ -33,93 +31,8 @@
 |--------|-------|---------|-------------|
 | **AI Likelihood** | 0–1 | Σ(14 weighted heuristic signals) + 0.08 base | Probability a file was AI-generated |
 | **Technical Debt** | 0–1 | complexity + nesting + duplication + file_size + modularization | Code structure quality |
-| **Cognitive Debt** | 0–1 | CCD×0.15 + (1-ES)×0.1 + AES×0.1 + RDI×0.1 + CLI×0.15 + IAS×0.1 + AGS×0.1 + RI×0.1 + CSC×0.1 | How hard the code is to understand |
+| **Cognitive Debt** | 0–1 | CCD×0.25 + (1-ES)×0.2 + AES×0.2 + RDI×0.15 + comment_utility×0.1 + func_readability×0.1 | How hard the code is to understand |
 | **Propagation Score** | 0–1 | DPS (see below) | How widely debt spreads through dependencies |
-
-### 🧠 Model Attribution Module
-
-For each candidate model M_i, compute approximate log-likelihood:
-
-```
-L(C | M_i) = f(SUS, TDD, SCS, ModelRisk_i)  // structural fingerprint approximation
-```
-
-Posterior probability via softmax:
-
-```
-P(M_i | C) = Softmax(L(C | M_1), ..., L(C | M_k))
-ModelID = argmax_i P(M_i | C)
-ModelConfidence = max_i P(M_i | C)
-```
-
-When direct log-likelihood APIs are unavailable, attribution uses:
-- **Perplexity differential** — deviation from expected token distributions per model
-- **Structural fingerprint vector** — SUS, TDD, SCS combined with model-specific risk priors
-- **Token entropy profile** — entropy characteristics that differ across model families
-
-### ⚙️ AI-Specific Technical Debt
-
-```
-AI_signal = AI_likelihood × ModelConfidence
-
-AI_TDS = AI_signal × (
-  0.35 × CyclomaticComplexity +
-  0.25 × NestingDepth +
-  0.20 × Duplication +
-  0.20 × CodeChurn
-)
-
-AI_PropagationRisk = AI_signal × DPS
-
-AI_TD_Final = AI_TDS + AI_PropagationRisk
-```
-
-### 🧠 AI-Specific Cognitive Debt
-
-```
-AI_CDS = AI_signal × (
-  0.30 × CLI +
-  0.25 × IdentifierAmbiguity +
-  0.20 × AbstractionGap +
-  0.15 × ContextSwitchingCost +
-  0.10 × EntropyDeviation
-)
-
-AI_ModelRisk = AI_signal × ModelRisk(M_i)
-
-AI_CD_Final = AI_CDS + AI_ModelRisk
-```
-
-### 🔬 Model Risk Factor
-
-```
-ModelRisk(M_i) = empirical average maintainability risk for model M_i
-```
-
-| Model | Risk Factor |
-|-------|------------|
-| claude-3 | 0.38 |
-| gpt-4 | 0.45 |
-| gemini-pro | 0.50 |
-| copilot | 0.55 |
-| deepseek-coder | 0.60 |
-| codellama | 0.65 |
-| starcoder | 0.68 |
-| gpt-3.5-turbo | 0.72 |
-
-### 📈 Final AI-Induced Debt
-
-```
-AI_Total_Debt = AI_TD_Final + AI_CD_Final
-```
-
-### 📊 AI-Generated Code Percentage
-
-```
-AI% = (Σ AI_likelihood(file_i) × LOC_i) / Total_LOC
-```
-
-Normalized to 0–100%.
 
 ### Detailed Sub-Metrics
 
@@ -132,16 +45,6 @@ Normalized to 0–100%.
 | **Debt Propagation Score** | DPS | tech_debt × 0.6 + ai_likelihood × 0.4 | How much this file spreads debt to others |
 | **Debt Longevity Index** | DLI | tech_debt × 0.5 + CCD × 0.5 | How persistent the debt is likely to be |
 | **Dependency Risk Factor** | DRF | AES × 0.4 + tech_debt × 0.3 + ai_likelihood × 0.3 | Risk from depending on this file |
-| **Change Proneness** | CP | issues / 8 (static proxy) | How frequently this file needs modification |
-| **Code Churn** | CCN | lines_added + lines_deleted | Total code volatility |
-| **Temporal Complexity** | TC | CP × cyclomatic_complexity / 10 | Change frequency × complexity |
-| **Defect Density Proxy** | DDP | issues / (LOC / 100) | Issue density per 100 lines |
-| **Modularity Degradation** | MDS | imports / (exports × 3) | Coupling vs cohesion ratio |
-| **Cognitive Load Index** | CLI | (nesting + branching + func_length/50) / 8 | Mental effort to understand |
-| **Identifier Ambiguity** | IAS | (short_ids + generic_ids) / (total_ids × 0.1) | Naming clarity |
-| **Abstraction Gap** | AGS | abs(complexity/func - name_length/15) | Intent vs implementation mismatch |
-| **Readability Index** | RI | (avg_line_len/80 + nesting/6 + (1-naming)) / 3 | Overall readability |
-| **Context Switching Cost** | CSC | (imports + func_calls/5) / 20 | Cognitive switching load |
 
 ### AI Detection Heuristics (14 Checks — Strict Mode)
 
@@ -160,17 +63,19 @@ Normalized to 0–100%.
 13. **Perfectly Sorted Imports** — Import statements in alphabetical order (AI tendency)
 14. **Excessive Type Annotations** — >5% of lines with primitive type annotations
 
-### AI Detection Metrics
+### Technical Debt Detection (Strict Thresholds)
 
-| Metric | Abbreviation | Description |
-|--------|-------------|-------------|
-| **Structural Uniformity Score** | SUS | Similarity across functions — high values indicate AI generation |
-| **Token Distribution Divergence** | TDD | Deviation from human-like token usage patterns |
-| **Pattern Repetition Index** | PRI | Frequency of repeated logic blocks |
-| **Comment Redundancy Score** | CRS | Comments explaining obvious logic |
-| **Style Consistency Score** | SCS | Suspiciously uniform formatting |
-
-**Final AI % = weighted average of SUS×0.25 + PRI×0.2 + CRS×0.2 + IAS×0.15 + entropy×0.2**
+| Check | Threshold | Debt Score |
+|-------|-----------|------------|
+| Cyclomatic Complexity | >15 | +0.30 |
+| Cyclomatic Complexity | >8 | +0.18 |
+| Nesting Depth | >4 levels | +0.30 |
+| Nesting Depth | >3 levels | +0.18 |
+| File Size | >300 LOC | +0.25 |
+| File Size | >200 LOC | +0.15 |
+| Long Functions | >50 lines | +0.20 per function |
+| Duplicate Blocks | >2 duplicates | +0.15 |
+| Poor Modularization | >20 functions | +0.10 |
 
 ### Commit Timeline Formulas
 
@@ -179,7 +84,7 @@ For each commit `c`:
 ```
 TDS(c) = TDS(c-1) × growthFactor + Δcomplexity + Δduplication + Δnesting
 CDS(c) = CDS(c-1) × growthFactor + Δreadability + Δnaming + Δentropy
-growthFactor = 1 + (net_growth × 0.3)
+growthFactor = 1 + (net_growth × 0.3)  // where net_growth = (additions - deletions) / total_changes
 ```
 
 **Spike Detection**: `Spike = TDS(c) - TDS(c-1) > 0.08`
@@ -188,54 +93,13 @@ growthFactor = 1 + (net_growth × 0.3)
 
 **Developer Impact**: `Impact(dev) = Σ(ΔTDS + ΔCDS) for all commits by developer`
 
----
+**Trend Classification**:
+- 📈 Increasing: avg_slope > 0.15
+- 📉 Improving: avg_slope < -0.10
+- ⚠️ Unstable: >3 spikes
+- 🔁 Fluctuating: otherwise
 
-## 📚 Research Foundations
-
-### LLM Authorship Attribution
-
-The model attribution engine is inspired by research on LLM output identification:
-
-- **Log-likelihood comparison** — Computing per-token log probabilities under different models to determine which model most likely produced a given output. When a model M_i assigns high probability to a code sequence C, the log-likelihood L(C|M_i) = Σ_t log P_M_i(c_t | c_<t) will be high, suggesting M_i generated C. (Solaiman et al., 2019; Mitchell et al., 2023)
-
-- **Model fingerprinting** — Different LLMs exhibit characteristic structural patterns. GPT-family models tend toward specific formatting choices and comment styles; CodeLlama shows different token distribution profiles. These "fingerprints" emerge from training data and architecture differences. (Tian et al., 2023; Krishna et al., ICML 2024)
-
-- **Watermarking and detection** — Research on watermarking LLM outputs (Kirchenbauer et al., ICML 2023) demonstrates that model-specific token probability distributions create detectable signatures, even without access to the original model.
-
-### Why Entropy Signals Differ Per Model
-
-Each model family has characteristic entropy profiles:
-- **Temperature settings** during generation affect token-level entropy
-- **Training data composition** creates model-specific vocabulary preferences
-- **Decoding strategies** (nucleus sampling, beam search) produce distinct distribution shapes
-- These differences manifest as measurable Token Distribution Divergence (TDD) scores
-
-### Why AI-Generated Code Increases Structural Uniformity
-
-AI models tend to produce code with:
-- **Consistent formatting** — uniform indentation, line lengths, and spacing patterns (measured by SCS)
-- **Repetitive structures** — similar function signatures and control flow patterns across files (measured by SUS and PRI)
-- **Generic naming** — variable names like `data`, `result`, `value` that lack domain-specific context (measured by IAS)
-- **Redundant comments** — explanations of obvious code logic that human developers omit (measured by CRS)
-
-### Why Propagation Modeling Is Necessary
-
-Technical debt doesn't exist in isolation. Research on software evolution shows:
-- Debt in one file **propagates** through import dependencies and shared patterns (Zazworka et al., 2011)
-- AI-generated code amplifies propagation because similar patterns get reused across files
-- The Debt Propagation Score (DPS) quantifies this spread: `DPS = tech_debt × 0.6 + ai_likelihood × 0.4`
-
-### Key Citations
-
-1. Solaiman, I. et al. (2019). "Release Strategies and the Social Impacts of Language Models." arXiv:1908.09203
-2. Mitchell, E. et al. (2023). "DetectGPT: Zero-Shot Machine-Generated Text Detection." ICML 2023
-3. Kirchenbauer, J. et al. (2023). "A Watermark for Large Language Models." ICML 2023
-4. Krishna, K. et al. (2024). "Paraphrasing Evades Detectors of AI-Generated Text, but Retrieval is an Effective Defense." ICML 2024
-5. Tian, E. et al. (2023). "GPTZero: Towards Detection of AI-Generated Text"
-6. Campbell, G.A. (2018). "Cognitive Complexity: A New Way of Measuring Understandability." SonarSource
-7. Zazworka, N. et al. (2011). "Investigating the Impact of Design Debt on Software Quality." MTD Workshop, ICSE
-8. Nagappan, N. & Ball, T. (2005). "Use of Relative Code Churn Measures to Predict System Defect Density." ICSE 2005
-9. Lenarduzzi, V. et al. (2021). "A Systematic Literature Review on Technical Debt Prioritization." JSS
+**Momentum**: Rate of recent (last 5 commits) debt growth — `fast` / `slow` / `stable`
 
 ---
 
@@ -249,8 +113,7 @@ Technical debt doesn't exist in isolation. Research on software evolution shows:
 │  Dashboard   │     │  ├── Pattern Detection  │
 │  Timeline    │     │  ├── Tech Debt Scoring  │
 │  Fix Plan    │     │  ├── Cognitive Analysis │
-│  Graph       │     │  ├── Model Attribution  │
-│              │     │  └── Propagation Graph  │
+│  Graph       │     │  └── Propagation Graph  │
 │              │     │                        │
 │              │     │  analyze-commits/       │
 │              │     │  ├── Commit Timeline    │
@@ -269,31 +132,6 @@ Technical debt doesn't exist in isolation. Research on software evolution shows:
                         └──────────────┘
 ```
 
-### API Response Format
-
-```json
-{
-  "ai_percentage": 62.5,
-  "model_attribution": {
-    "model_id": "codellama",
-    "confidence": 0.73
-  },
-  "ai_technical_debt": 0.45,
-  "ai_cognitive_debt": 0.38,
-  "ai_total_debt": 0.83,
-  "summary": { ... },
-  "files": [
-    {
-      "modelAttribution": { "model_id": "gpt-4", "confidence": 0.68 },
-      "aiTechnicalDebt": 0.52,
-      "aiCognitiveDebt": 0.41,
-      "aiTotalDebt": 0.93,
-      ...
-    }
-  ]
-}
-```
-
 ### Pages
 
 | Page | Purpose |
@@ -305,8 +143,8 @@ Technical debt doesn't exist in isolation. Research on software evolution shows:
 
 ### Dashboard Tabs
 
-1. **Overview** — Metric cards, model attribution banner, refactor priority score, confidence score, top risk files with impact simulator, bar/pie/radar charts, debt heatmap, guided insights
-2. **Files** — Sortable/filterable file table with expandable debt breakdowns, model attribution per file
+1. **Overview** — Metric cards, refactor priority score, confidence score, top risk files with impact simulator, bar/pie/radar charts, debt heatmap, guided insights
+2. **Files** — Sortable/filterable file table with expandable debt breakdowns per file
 3. **Timeline** — Commit-by-commit debt evolution with interactive slider, spike markers, developer leaderboard, trend classification, future prediction
 4. **Fix Plan** — Step-by-step refactor recommendations with priority levels and impact estimates
 5. **Graph** — Propagation graph showing import dependencies and shared-pattern connections
@@ -341,15 +179,6 @@ npm run dev
 ```
 
 Requirements: Node.js & npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
----
-
-## ⚠️ Limitations
-
-- **Attribution is probabilistic** — Model identification is based on structural fingerprinting and token entropy profiling, not direct access to model log-likelihood APIs
-- **Accuracy decreases with editing** — If AI-generated code has been heavily refactored or edited by humans, detection and attribution reliability diminishes
-- **Fine-tuned models** — Custom or fine-tuned models may exhibit patterns outside the baseline model fingerprint library, reducing attribution accuracy
-- **Static approximation** — Metrics like Change Proneness and Code Churn are approximated from static analysis when commit history is not available
 
 ---
 

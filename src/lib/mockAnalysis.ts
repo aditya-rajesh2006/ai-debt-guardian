@@ -1,10 +1,5 @@
 // Mock analysis engine - simulates PMD, SonarQube, Tree-sitter outputs
 
-export interface ModelAttribution {
-  model_id: string;
-  confidence: number;
-}
-
 export interface FileAnalysis {
   file: string;
   aiLikelihood: number;
@@ -44,10 +39,6 @@ export interface FileAnalysis {
   cyclomaticComplexity: number;
   nestingDepth: number;
   aiDebtContribution: number;
-  modelAttribution: ModelAttribution;
-  aiTechnicalDebt: number;
-  aiCognitiveDebt: number;
-  aiTotalDebt: number;
 }
 
 export interface PropagationEdge {
@@ -72,11 +63,6 @@ export interface AnalysisResult {
     highRiskFiles: number;
     topRefactorTargets: string[];
   };
-  ai_percentage: number;
-  model_attribution: ModelAttribution;
-  ai_technical_debt: number;
-  ai_cognitive_debt: number;
-  ai_total_debt: number;
 }
 
 export interface CommitAnalysis {
@@ -130,30 +116,6 @@ function pickRandom<T>(arr: T[], count: number): T[] {
   return shuffled.slice(0, count);
 }
 
-const AI_MODELS = [
-  { id: 'codellama', risk: 0.65 },
-  { id: 'gpt-4', risk: 0.45 },
-  { id: 'gpt-3.5-turbo', risk: 0.72 },
-  { id: 'claude-3', risk: 0.38 },
-  { id: 'gemini-pro', risk: 0.50 },
-  { id: 'copilot', risk: 0.55 },
-  { id: 'deepseek-coder', risk: 0.60 },
-  { id: 'starcoder', risk: 0.68 },
-];
-
-function pickModel(aiLikelihood: number): ModelAttribution {
-  // Simulate model fingerprinting via structural heuristics
-  const idx = Math.floor(Math.random() * AI_MODELS.length);
-  const confidence = aiLikelihood > 0.5
-    ? rand(0.55, 0.92)
-    : rand(0.20, 0.50);
-  return { model_id: AI_MODELS[idx].id, confidence };
-}
-
-function getModelRisk(modelId: string): number {
-  return AI_MODELS.find(m => m.id === modelId)?.risk ?? 0.5;
-}
-
 export function generateMockAnalysis(repoName: string): AnalysisResult {
   const numFiles = 12 + Math.floor(Math.random() * 12);
   const files = pickRandom(FILE_TEMPLATES, numFiles);
@@ -161,51 +123,22 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
   const fileAnalyses: FileAnalysis[] = files.map(file => {
     const aiLikelihood = rand(0.1, 0.95);
     const isHighAI = aiLikelihood > 0.6;
-    const technicalDebt = isHighAI ? rand(0.4, 0.9) : rand(0.1, 0.5);
-    const cognitiveDebt = isHighAI ? rand(0.5, 0.95) : rand(0.1, 0.4);
-    const modelAttr = pickModel(aiLikelihood);
-    const modelRisk = getModelRisk(modelAttr.model_id);
-
-    // AI_signal = AI_likelihood × ModelConfidence
-    const aiSignal = aiLikelihood * modelAttr.confidence;
-
-    // AI_TDS = AI_signal * (0.35*CC + 0.25*ND + 0.20*Dup + 0.20*Churn)
-    const cc = rand(0.1, 0.9);
-    const nd = rand(0.1, 0.8);
-    const dup = rand(0.05, 0.5);
-    const churn = rand(0.1, 0.6);
-    const aiTDS = aiSignal * (0.35 * cc + 0.25 * nd + 0.20 * dup + 0.20 * churn);
-    const dps = rand(0.1, 0.9);
-    const aiPropRisk = aiSignal * dps;
-    const aiTechnicalDebt = Math.round(Math.min(aiTDS + aiPropRisk, 1) * 100) / 100;
-
-    // AI_CDS = AI_signal * (0.30*CLI + 0.25*IAS + 0.20*AGS + 0.15*CSC + 0.10*entropy)
-    const cli = rand(0, 1);
-    const ias = rand(0, 1);
-    const ags = rand(0, 1);
-    const csc = rand(0, 1);
-    const entropy = rand(0, 0.5);
-    const aiCDS = aiSignal * (0.30 * cli + 0.25 * ias + 0.20 * ags + 0.15 * csc + 0.10 * entropy);
-    const aiModelRisk = aiSignal * modelRisk;
-    const aiCognitiveDebt = Math.round(Math.min(aiCDS + aiModelRisk, 1) * 100) / 100;
-
-    const aiTotalDebt = Math.round((aiTechnicalDebt + aiCognitiveDebt) * 100) / 100;
 
     return {
       file,
       aiLikelihood,
-      technicalDebt,
-      cognitiveDebt,
-      propagationScore: dps,
+      technicalDebt: isHighAI ? rand(0.4, 0.9) : rand(0.1, 0.5),
+      cognitiveDebt: isHighAI ? rand(0.5, 0.95) : rand(0.1, 0.4),
+      propagationScore: rand(0.1, 0.9),
       issues: pickRandom(ISSUE_TYPES, isHighAI ? Math.floor(Math.random() * 4) + 2 : Math.floor(Math.random() * 2) + 1),
       metrics: {
         ccd: rand(0, 1), es: rand(0, 1),
         aes: isHighAI ? rand(0.5, 1) : rand(0, 0.4),
-        rdi: rand(0, 1), dps, dli: rand(0, 1), drf: rand(0, 1),
+        rdi: rand(0, 1), dps: rand(0, 1), dli: rand(0, 1), drf: rand(0, 1),
         cp: rand(0, 1), ccn: Math.floor(Math.random() * 400) + 50,
         tc: rand(0, 1), ddp: rand(0, 1), mds: rand(0, 1),
-        cli, ias, ags,
-        ri: rand(0, 1), csc,
+        cli: rand(0, 1), ias: rand(0, 1), ags: rand(0, 1),
+        ri: rand(0, 1), csc: rand(0, 1),
         sus: isHighAI ? rand(0.4, 0.9) : rand(0, 0.3),
         tdd: rand(0, 0.5), pri: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
         crs: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
@@ -216,10 +149,6 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
       cyclomaticComplexity: Math.floor(Math.random() * 20) + 1,
       nestingDepth: Math.floor(Math.random() * 6) + 1,
       aiDebtContribution: isHighAI ? rand(40, 90) : rand(5, 30),
-      modelAttribution: modelAttr,
-      aiTechnicalDebt,
-      aiCognitiveDebt,
-      aiTotalDebt,
     };
   });
 
@@ -240,25 +169,6 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
   const avgTechnicalDebt = fileAnalyses.reduce((s, f) => s + f.technicalDebt, 0) / numFiles;
   const avgCognitiveDebt = fileAnalyses.reduce((s, f) => s + f.cognitiveDebt, 0) / numFiles;
 
-  // Repo-level AI%: LOC-weighted
-  const totalLOC = fileAnalyses.reduce((s, f) => s + f.linesOfCode, 0);
-  const aiPct = Math.round(fileAnalyses.reduce((s, f) => s + f.aiLikelihood * f.linesOfCode, 0) / totalLOC * 100) / 100;
-
-  // Dominant model across repo
-  const modelVotes = new Map<string, number>();
-  for (const f of fileAnalyses) {
-    modelVotes.set(f.modelAttribution.model_id, (modelVotes.get(f.modelAttribution.model_id) || 0) + f.modelAttribution.confidence);
-  }
-  let bestModel = 'unknown';
-  let bestScore = 0;
-  for (const [m, s] of modelVotes) {
-    if (s > bestScore) { bestModel = m; bestScore = s; }
-  }
-  const repoModelConfidence = Math.round(bestScore / numFiles * 100) / 100;
-
-  const totalAiTech = Math.round(fileAnalyses.reduce((s, f) => s + f.aiTechnicalDebt, 0) / numFiles * 100) / 100;
-  const totalAiCog = Math.round(fileAnalyses.reduce((s, f) => s + f.aiCognitiveDebt, 0) / numFiles * 100) / 100;
-
   return {
     repoName,
     totalFiles: numFiles,
@@ -275,10 +185,5 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
         .slice(0, 3)
         .map(f => f.file),
     },
-    ai_percentage: aiPct * 100,
-    model_attribution: { model_id: bestModel, confidence: repoModelConfidence },
-    ai_technical_debt: totalAiTech,
-    ai_cognitive_debt: totalAiCog,
-    ai_total_debt: Math.round((totalAiTech + totalAiCog) * 100) / 100,
   };
 }

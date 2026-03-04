@@ -35,11 +35,6 @@ interface FileMetrics {
   scs: number;  // Style Consistency Score
 }
 
-interface ModelAttribution {
-  model_id: string;
-  confidence: number;
-}
-
 interface FileAnalysis {
   file: string;
   aiLikelihood: number;
@@ -53,10 +48,6 @@ interface FileAnalysis {
   cyclomaticComplexity: number;
   nestingDepth: number;
   aiDebtContribution: number;
-  modelAttribution: ModelAttribution;
-  aiTechnicalDebt: number;
-  aiCognitiveDebt: number;
-  aiTotalDebt: number;
 }
 
 interface PropagationEdge {
@@ -67,45 +58,6 @@ interface PropagationEdge {
 }
 
 const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN") || "";
-
-// ── MODEL ATTRIBUTION ──
-const AI_MODELS = [
-  { id: 'codellama', risk: 0.65 },
-  { id: 'gpt-4', risk: 0.45 },
-  { id: 'gpt-3.5-turbo', risk: 0.72 },
-  { id: 'claude-3', risk: 0.38 },
-  { id: 'gemini-pro', risk: 0.50 },
-  { id: 'copilot', risk: 0.55 },
-  { id: 'deepseek-coder', risk: 0.60 },
-  { id: 'starcoder', risk: 0.68 },
-];
-
-function attributeModel(content: string, aiLikelihood: number, sus: number, tdd: number, scs: number): ModelAttribution {
-  // Approximate log-likelihood via structural fingerprint vector
-  // L(C|M_i) ≈ f(SUS, TDD, SCS, entropy_profile) per model
-  const scores = AI_MODELS.map(m => {
-    const fingerprint = sus * 0.3 + tdd * 0.2 + scs * 0.25 + m.risk * 0.25;
-    const noise = (Math.random() - 0.5) * 0.15;
-    return { model: m.id, score: fingerprint + noise };
-  });
-  // Softmax approximation
-  const maxScore = Math.max(...scores.map(s => s.score));
-  const expScores = scores.map(s => ({ ...s, exp: Math.exp((s.score - maxScore) * 5) }));
-  const sumExp = expScores.reduce((s, e) => s + e.exp, 0);
-  const probs = expScores.map(s => ({ model: s.model, prob: s.exp / sumExp }));
-  probs.sort((a, b) => b.prob - a.prob);
-  
-  const bestProb = probs[0].prob;
-  const confidence = aiLikelihood > 0.4
-    ? Math.round(Math.min(bestProb * 1.3, 0.95) * 100) / 100
-    : Math.round(bestProb * 0.6 * 100) / 100;
-  
-  return { model_id: probs[0].model, confidence };
-}
-
-function getModelRisk(modelId: string): number {
-  return AI_MODELS.find(m => m.id === modelId)?.risk ?? 0.5;
-}
 
 async function fetchGitHub(url: string, token?: string) {
   const headers: Record<string, string> = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'AIDebtTracker' };
@@ -568,28 +520,6 @@ serve(async (req) => {
       const ccn = tech.linesOfCode; // proxy: total LOC as churn
       const tc = r(Math.min((cp * tech.cyclomaticComplexity) / 10, 1));
 
-      // Model Attribution
-      const modelAttr = attributeModel(content, ai.aiLikelihood, ai.sus, ai.tdd, ai.scs);
-      const modelRisk = getModelRisk(modelAttr.model_id);
-      const aiSignal = ai.aiLikelihood * modelAttr.confidence;
-
-      // AI_TDS = AI_signal * (0.35*CC + 0.25*ND + 0.20*Dup + 0.20*Churn)
-      const ccNorm = Math.min(tech.cyclomaticComplexity / 20, 1);
-      const ndNorm = Math.min(tech.nestingDepth / 6, 1);
-      const dupNorm = tech.techIssues.includes('duplicate code blocks') ? 0.7 : 0.2;
-      const churnNorm = Math.min(tech.linesOfCode / 400, 1);
-      const aiTDS = aiSignal * (0.35 * ccNorm + 0.25 * ndNorm + 0.20 * dupNorm + 0.20 * churnNorm);
-      const aiPropRisk = aiSignal * cog.metrics.dps;
-      const aiTechnicalDebt = r(Math.min(aiTDS + aiPropRisk, 1));
-
-      // AI_CDS = AI_signal * (0.30*CLI + 0.25*IAS + 0.20*AGS + 0.15*CSC + 0.10*entropy)
-      const entropyDev = Math.max(0, 1 - (ai.tdd + ai.scs) / 2);
-      const aiCDS = aiSignal * (0.30 * cog.cli + 0.25 * cog.ias + 0.20 * cog.ags + 0.15 * cog.csc + 0.10 * entropyDev);
-      const aiModelRisk = aiSignal * modelRisk;
-      const aiCognitiveDebt = r(Math.min(aiCDS + aiModelRisk, 1));
-
-      const aiTotalDebt = r(aiTechnicalDebt + aiCognitiveDebt);
-
       fileAnalyses.push({
         file: ghFile.path,
         aiLikelihood: ai.aiLikelihood,
@@ -618,10 +548,6 @@ serve(async (req) => {
         cyclomaticComplexity: tech.cyclomaticComplexity,
         nestingDepth: tech.nestingDepth,
         aiDebtContribution: ai.aiDebtContribution,
-        modelAttribution: modelAttr,
-        aiTechnicalDebt,
-        aiCognitiveDebt,
-        aiTotalDebt,
       });
     }
 
@@ -633,25 +559,6 @@ serve(async (req) => {
     const avgAiLikelihood = r(fileAnalyses.reduce((s, f) => s + f.aiLikelihood, 0) / n);
     const avgTechnicalDebt = r(fileAnalyses.reduce((s, f) => s + f.technicalDebt, 0) / n);
     const avgCognitiveDebt = r(fileAnalyses.reduce((s, f) => s + f.cognitiveDebt, 0) / n);
-
-    // Repo-level AI%: LOC-weighted
-    const totalLOC = fileAnalyses.reduce((s, f) => s + f.linesOfCode, 0);
-    const aiPct = r(fileAnalyses.reduce((s, f) => s + f.aiLikelihood * f.linesOfCode, 0) / totalLOC);
-
-    // Dominant model
-    const modelVotes = new Map<string, number>();
-    for (const f of fileAnalyses) {
-      modelVotes.set(f.modelAttribution.model_id, (modelVotes.get(f.modelAttribution.model_id) || 0) + f.modelAttribution.confidence);
-    }
-    let bestModel = 'unknown';
-    let bestScore = 0;
-    for (const [m, s] of modelVotes) {
-      if (s > bestScore) { bestModel = m; bestScore = s; }
-    }
-    const repoModelConf = r(bestScore / n);
-
-    const avgAiTech = r(fileAnalyses.reduce((s, f) => s + f.aiTechnicalDebt, 0) / n);
-    const avgAiCog = r(fileAnalyses.reduce((s, f) => s + f.aiCognitiveDebt, 0) / n);
 
     const result = {
       repoName: `${owner}/${repo}`,
@@ -671,11 +578,6 @@ serve(async (req) => {
           .slice(0, 3)
           .map(f => f.file),
       },
-      ai_percentage: aiPct * 100,
-      model_attribution: { model_id: bestModel, confidence: repoModelConf },
-      ai_technical_debt: avgAiTech,
-      ai_cognitive_debt: avgAiCog,
-      ai_total_debt: r(avgAiTech + avgAiCog),
     };
 
     return new Response(JSON.stringify(result), {
