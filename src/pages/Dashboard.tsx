@@ -180,11 +180,11 @@ export default function Dashboard() {
     const avg = (key: keyof typeof files[0]['metrics']) =>
       Math.round(files.reduce((s, f) => s + (f.metrics[key] ?? 0), 0) / files.length * 100);
     return [
-      { metric: "DPS", value: avg("dps") },
-      { metric: "DLI", value: avg("dli") },
+      { metric: "TDR", value: avg("tdr") },
+      { metric: "MI", value: avg("mi") },
+      { metric: "CBO", value: avg("cbo") },
       { metric: "CLI", value: avg("cli") },
-      { metric: "CCD", value: avg("ccd") },
-      { metric: "IAS", value: avg("ias") },
+      { metric: "DPS", value: avg("dps") },
       { metric: "SUS", value: avg("sus") },
       { metric: "RI", value: avg("ri") },
     ];
