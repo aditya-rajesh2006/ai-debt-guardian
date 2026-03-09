@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, Brain, GitFork, Wrench, Bot, Flame, Gauge, Shield, Activity } from "lucide-react";
+import { AlertTriangle, Brain, GitFork, Wrench } from "lucide-react";
 import type { AnalysisResult } from "@/lib/mockAnalysis";
-import MetricTooltip from "./MetricTooltip";
 
 interface Props {
   data: AnalysisResult;
@@ -10,41 +9,12 @@ interface Props {
 export default function InsightsPanel({ data }: Props) {
   const highDebt = [...data.files].sort((a, b) => (b.technicalDebt + b.cognitiveDebt) - (a.technicalDebt + a.cognitiveDebt)).slice(0, 5);
   const highPropagation = [...data.files].sort((a, b) => b.propagationScore - a.propagationScore).slice(0, 3);
-  const highAI = [...data.files].sort((a, b) => b.aiDebtContribution - a.aiDebtContribution).slice(0, 5);
-
-  // AI debt attribution
-  const totalTechDebt = data.files.reduce((s, f) => s + f.technicalDebt, 0);
-  const totalCogDebt = data.files.reduce((s, f) => s + f.cognitiveDebt, 0);
-  const aiTechDebt = data.files.reduce((s, f) => s + f.technicalDebt * f.aiLikelihood, 0);
-  const aiCogDebt = data.files.reduce((s, f) => s + f.cognitiveDebt * f.aiLikelihood, 0);
-  const aiTechPct = totalTechDebt > 0 ? Math.round(aiTechDebt / totalTechDebt * 100) : 0;
-  const aiCogPct = totalCogDebt > 0 ? Math.round(aiCogDebt / totalCogDebt * 100) : 0;
-
-  // Research metric averages
-  const avgMI = data.summary.avgMI ?? (data.files.reduce((s, f) => s + (f.metrics.mi ?? 0), 0) / data.files.length);
-  const avgCHS = data.summary.avgCHS ?? (data.files.reduce((s, f) => s + (f.metrics.chs ?? 0), 0) / data.files.length);
-  const avgTDR = data.summary.avgTDR ?? (data.files.reduce((s, f) => s + (f.metrics.tdr ?? 0), 0) / data.files.length);
-  const dpf = data.summary.dpf ?? 0;
-  const dsr = data.summary.dsr ?? 0;
-
-  const miLabel = avgMI > 0.85 ? "Excellent" : avgMI > 0.65 ? "Moderate" : "Poor";
-  const miColor = avgMI > 0.85 ? "text-neon-green" : avgMI > 0.65 ? "text-accent" : "text-destructive";
-  const tdrLabel = avgTDR < 0.05 ? "Healthy" : avgTDR < 0.1 ? "Moderate" : "High";
-  const tdrColor = avgTDR < 0.05 ? "text-neon-green" : avgTDR < 0.1 ? "text-accent" : "text-destructive";
+  const highCognitive = [...data.files].sort((a, b) => b.cognitiveDebt - a.cognitiveDebt).slice(0, 3);
 
   const sections = [
     {
-      icon: Bot,
-      title: "AI-Induced Debt Leaders",
-      items: highAI.map(f => ({
-        label: f.file.split('/').pop()!,
-        value: `${f.aiDebtContribution}% AI debt`,
-      })),
-      color: "text-neon-purple",
-    },
-    {
       icon: AlertTriangle,
-      title: "Highest Combined Debt",
+      title: "Highest AI-Induced Debt",
       items: highDebt.map(f => ({ label: f.file.split('/').pop()!, value: `${((f.technicalDebt + f.cognitiveDebt) / 2 * 100).toFixed(0)}%` })),
       color: "text-destructive",
     },
@@ -55,6 +25,12 @@ export default function InsightsPanel({ data }: Props) {
       color: "text-accent",
     },
     {
+      icon: Brain,
+      title: "High Cognitive Burden",
+      items: highCognitive.map(f => ({ label: f.file.split('/').pop()!, value: `${(f.cognitiveDebt * 100).toFixed(0)}%` })),
+      color: "text-neon-purple",
+    },
+    {
       icon: Wrench,
       title: "Refactor First",
       items: data.summary.topRefactorTargets.map(f => ({ label: f.split('/').pop()!, value: "Priority" })),
@@ -63,189 +39,29 @@ export default function InsightsPanel({ data }: Props) {
   ];
 
   return (
-    <div className="space-y-4">
-      {/* AI Debt Attribution Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-neon-purple/30 bg-neon-purple/5 backdrop-blur-sm p-5"
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <Bot className="h-5 w-5 text-neon-purple" />
-          <h3 className="text-sm font-bold text-foreground">AI-Induced Debt Attribution</h3>
-        </div>
-        <p className="text-sm text-foreground mb-4">
-          AI-generated code contributes <strong className="text-neon-purple text-lg font-mono">{aiTechPct}%</strong> of total technical debt
-          and <strong className="text-neon-purple text-lg font-mono">{aiCogPct}%</strong> of total cognitive debt.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-muted-foreground">AI → Technical Debt</span>
-              <span className="font-mono text-neon-purple">{aiTechPct}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: "hsl(var(--neon-purple))" }}
-                initial={{ width: 0 }}
-                animate={{ width: `${aiTechPct}%` }}
-                transition={{ duration: 1 }}
-              />
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-muted-foreground">AI → Cognitive Debt</span>
-              <span className="font-mono text-neon-purple">{aiCogPct}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: "hsl(var(--neon-purple))" }}
-                initial={{ width: 0 }}
-                animate={{ width: `${aiCogPct}%` }}
-                transition={{ duration: 1, delay: 0.1 }}
-              />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Research Metrics Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-5"
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <Activity className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Research-Backed Metrics</h3>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <MetricTooltip metric="TDR">
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">TDR</p>
-              <p className={`text-lg font-black font-mono ${tdrColor}`}>{(avgTDR * 100).toFixed(1)}%</p>
-              <p className={`text-[10px] ${tdrColor}`}>{tdrLabel}</p>
-            </div>
-          </MetricTooltip>
-          <MetricTooltip metric="MI">
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Maintainability</p>
-              <p className={`text-lg font-black font-mono ${miColor}`}>{(avgMI * 100).toFixed(0)}</p>
-              <p className={`text-[10px] ${miColor}`}>{miLabel}</p>
-            </div>
-          </MetricTooltip>
-          <MetricTooltip metric="CHS">
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Code Health</p>
-              <p className="text-lg font-black font-mono text-foreground">{(avgCHS * 10).toFixed(1)}<span className="text-xs text-muted-foreground">/10</span></p>
-            </div>
-          </MetricTooltip>
-          <MetricTooltip metric="DPF">
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Propagation</p>
-              <p className="text-lg font-black font-mono text-foreground">{dpf.toFixed(2)}</p>
-              <p className="text-[10px] text-muted-foreground">{dpf > 1.5 ? "Spreading" : "Contained"}</p>
-            </div>
-          </MetricTooltip>
-          <MetricTooltip metric="DSR">
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Spread Rate</p>
-              <p className="text-lg font-black font-mono text-foreground">{(dsr * 100).toFixed(0)}%</p>
-            </div>
-          </MetricTooltip>
-        </div>
-      </motion.div>
-
-      {/* AI vs Human Comparison */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5"
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <Flame className="h-4 w-4 text-accent" />
-          <h3 className="text-sm font-semibold text-foreground">AI vs Human Debt Comparison</h3>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Technical Debt Source</p>
-            <div className="flex gap-1 h-4 rounded-full overflow-hidden">
-              <motion.div
-                className="rounded-l-full"
-                style={{ background: "hsl(var(--neon-purple))", width: `${aiTechPct}%` }}
-                initial={{ width: 0 }}
-                animate={{ width: `${aiTechPct}%` }}
-                transition={{ duration: 0.8 }}
-              />
-              <motion.div
-                className="rounded-r-full"
-                style={{ background: "hsl(var(--primary))", width: `${100 - aiTechPct}%` }}
-                initial={{ width: 0 }}
-                animate={{ width: `${100 - aiTechPct}%` }}
-                transition={{ duration: 0.8 }}
-              />
-            </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-neon-purple" /> AI: {aiTechPct}%</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Human: {100 - aiTechPct}%</span>
-            </div>
+    <div className="grid gap-4 sm:grid-cols-2">
+      {sections.map((section, i) => (
+        <motion.div
+          key={section.title}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.1 }}
+          className="rounded-xl border border-border bg-card p-4"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <section.icon className={`h-4 w-4 ${section.color}`} />
+            <h4 className="text-xs font-semibold text-foreground">{section.title}</h4>
           </div>
           <div className="space-y-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cognitive Debt Source</p>
-            <div className="flex gap-1 h-4 rounded-full overflow-hidden">
-              <motion.div
-                className="rounded-l-full"
-                style={{ background: "hsl(var(--neon-purple))", width: `${aiCogPct}%` }}
-                initial={{ width: 0 }}
-                animate={{ width: `${aiCogPct}%` }}
-                transition={{ duration: 0.8 }}
-              />
-              <motion.div
-                className="rounded-r-full"
-                style={{ background: "hsl(var(--primary))", width: `${100 - aiCogPct}%` }}
-                initial={{ width: 0 }}
-                animate={{ width: `${100 - aiCogPct}%` }}
-                transition={{ duration: 0.8 }}
-              />
-            </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-neon-purple" /> AI: {aiCogPct}%</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Human: {100 - aiCogPct}%</span>
-            </div>
+            {section.items.map((item) => (
+              <div key={item.label} className="flex items-center justify-between text-xs">
+                <span className="font-mono text-muted-foreground truncate mr-2">{item.label}</span>
+                <span className={`font-semibold ${section.color}`}>{item.value}</span>
+              </div>
+            ))}
           </div>
-        </div>
-      </motion.div>
-
-      {/* Section cards */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {sections.map((section, i) => (
-          <motion.div
-            key={section.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + i * 0.1 }}
-            className="rounded-xl border border-border bg-card p-4"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <section.icon className={`h-4 w-4 ${section.color}`} />
-              <h4 className="text-xs font-semibold text-foreground">{section.title}</h4>
-            </div>
-            <div className="space-y-2">
-              {section.items.map((item) => (
-                <div key={item.label} className="flex items-center justify-between text-xs">
-                  <span className="font-mono text-muted-foreground truncate mr-2">{item.label}</span>
-                  <span className={`font-semibold ${section.color}`}>{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        ))}
-      </div>
+        </motion.div>
+      ))}
     </div>
   );
 }

@@ -23,17 +23,6 @@ const METRIC_EXPLANATIONS: Record<string, string> = {
   "TC": "Temporal Complexity — Frequency of changes multiplied by code complexity.",
   "DDP": "Defect Density Proxy — Number of detected issues per 100 lines of code.",
   "MDS": "Modularity Degradation Score — Ratio of coupling to cohesion; high = poor modularization.",
-  // Research-backed Technical
-  "TDR": "Technical Debt Ratio — Cost to fix debt vs. development cost. 0–5% healthy, 5–10% moderate, >10% high. (SonarSource model)",
-  "MI": "Maintainability Index — Composite of Halstead Volume, Cyclomatic Complexity, and LOC. >85 excellent, 65–85 moderate, <65 poor. (Oman & Hagemeister, 1992)",
-  "HV": "Halstead Volume — Program size measured by operators and operands. Higher = more complex. (Halstead, 1977)",
-  "HD": "Halstead Difficulty — How hard the program is to write or understand. (Halstead, 1977)",
-  "HE": "Halstead Effort — Estimated mental effort to develop. Effort = Volume × Difficulty. (Halstead, 1977)",
-  "CBO": "Coupling Between Objects — How many modules this file depends on. High coupling = harder maintenance. (Chidamber & Kemerer, 1994)",
-  "CHS": "Code Health Score — Combined health metric (1–10) from code smells, complexity, and activity. Lower = more problems. (CodeScene model)",
-  "DPF": "Debt Propagation Factor — Files affected by debt / original debt files. Measures how debt spreads through the codebase.",
-  "DSR": "Debt Spread Rate — Ratio of debt-related changes to total changes. Higher = debt spreading faster.",
-  "Dup Ratio": "Code Duplication Ratio — % of duplicated lines. <5% low, 5–10% moderate, >10% high risk.",
   // Advanced Cognitive
   "CLI": "Cognitive Load Index — Combined nesting depth, branching factor, and function length.",
   "IAS": "Identifier Ambiguity Score — Ratio of unclear/short variable names to total identifiers.",
@@ -46,14 +35,6 @@ const METRIC_EXPLANATIONS: Record<string, string> = {
   "PRI": "Pattern Repetition Index — Frequency of repeated logic blocks across the codebase.",
   "CRS": "Comment Redundancy Score — Comments that explain obvious code (AI hallmark).",
   "SCS": "Style Consistency Score — Suspiciously uniform formatting typical of AI generation.",
-  // AI Multi-signal model
-  "AI Score": "Multi-signal AI detection probability combining perplexity, naming, comments, templates, and structure. (DetectGPT-inspired)",
-  "Perplexity": "Token Perplexity Score — Lower entropy = more predictable = more AI-like. (Mitchell et al., 2023)",
-  "Naming Regularity": "Identifier Verbosity — AI produces overly descriptive names like 'calculateAverageStudentScore'.",
-  "Comment Density": "Comment-to-code ratio — AI tends to over-comment with obvious explanations.",
-  "Template Similarity": "Boilerplate Structure Detection — Frequency of template-like patterns (try/catch, null checks).",
-  "Commit Burst": "Commit Burst Score — Large single commits suggest bulk AI code generation.",
-  "Format Consistency": "Formatting Variance — AI code has suspiciously uniform indentation and spacing.",
 };
 
 interface Props {

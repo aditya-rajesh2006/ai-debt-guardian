@@ -8,32 +8,31 @@ export interface FileAnalysis {
   propagationScore: number;
   issues: string[];
   metrics: {
-    ccd: number; es: number; aes: number; rdi: number; dps: number; dli: number; drf: number;
+    ccd: number; // Cognitive Complexity Drift
+    es: number;  // Explainability Score
+    aes: number; // AI Entropy Score
+    rdi: number; // Readability Degradation Index
+    dps: number; // Debt Propagation Score
+    dli: number; // Debt Longevity Index
+    drf: number; // Dependency Risk Factor
     // Advanced Technical
-    cp: number; ccn: number; tc: number; ddp: number; mds: number;
-    // Research-backed Technical
-    tdr: number;   // Technical Debt Ratio
-    mi: number;    // Maintainability Index (0=poor, 1=excellent)
-    hv: number;    // Halstead Volume (normalized)
-    hd: number;    // Halstead Difficulty (normalized)
-    he: number;    // Halstead Effort (normalized)
-    cbo: number;   // Coupling Between Objects
-    chs: number;   // Code Health Score (0=poor, 1=excellent)
-    dpf: number;   // Debt Propagation Factor
-    dsr: number;   // Debt Spread Rate
-    dupRatio: number; // Code Duplication Ratio
+    cp: number;   // Change Proneness
+    ccn: number;  // Code Churn
+    tc: number;   // Temporal Complexity
+    ddp: number;  // Defect Density Proxy
+    mds: number;  // Modularity Degradation Score
     // Advanced Cognitive
-    cli: number; ias: number; ags: number; ri: number; csc: number;
+    cli: number;  // Cognitive Load Index
+    ias: number;  // Identifier Ambiguity Score
+    ags: number;  // Abstraction Gap Score
+    ri: number;   // Readability Index
+    csc: number;  // Context Switching Cost
     // AI Detection
-    sus: number; tdd: number; pri: number; crs: number; scs: number;
-    // AI multi-signal model
-    aiScore: number;
-    perplexityScore: number;
-    namingRegularity: number;
-    commentDensity: number;
-    templateSimilarity: number;
-    commitBurstScore: number;
-    formatConsistency: number;
+    sus: number;  // Structural Uniformity Score
+    tdd: number;  // Token Distribution Divergence
+    pri: number;  // Pattern Repetition Index
+    crs: number;  // Comment Redundancy Score
+    scs: number;  // Style Consistency Score
   };
   linesOfCode: number;
   functions: number;
@@ -63,11 +62,6 @@ export interface AnalysisResult {
     totalIssues: number;
     highRiskFiles: number;
     topRefactorTargets: string[];
-    dpf?: number;
-    dsr?: number;
-    avgMI?: number;
-    avgCHS?: number;
-    avgTDR?: number;
   };
 }
 
@@ -129,14 +123,12 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
   const fileAnalyses: FileAnalysis[] = files.map(file => {
     const aiLikelihood = rand(0.1, 0.95);
     const isHighAI = aiLikelihood > 0.6;
-    const techDebt = isHighAI ? rand(0.4, 0.9) : rand(0.1, 0.5);
-    const cogDebt = isHighAI ? rand(0.5, 0.95) : rand(0.1, 0.4);
 
     return {
       file,
       aiLikelihood,
-      technicalDebt: techDebt,
-      cognitiveDebt: cogDebt,
+      technicalDebt: isHighAI ? rand(0.4, 0.9) : rand(0.1, 0.5),
+      cognitiveDebt: isHighAI ? rand(0.5, 0.95) : rand(0.1, 0.4),
       propagationScore: rand(0.1, 0.9),
       issues: pickRandom(ISSUE_TYPES, isHighAI ? Math.floor(Math.random() * 4) + 2 : Math.floor(Math.random() * 2) + 1),
       metrics: {
@@ -145,30 +137,12 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
         rdi: rand(0, 1), dps: rand(0, 1), dli: rand(0, 1), drf: rand(0, 1),
         cp: rand(0, 1), ccn: Math.floor(Math.random() * 400) + 50,
         tc: rand(0, 1), ddp: rand(0, 1), mds: rand(0, 1),
-        // Research metrics
-        tdr: isHighAI ? rand(0.08, 0.25) : rand(0.01, 0.08),
-        mi: isHighAI ? rand(0.3, 0.6) : rand(0.6, 0.95),
-        hv: rand(0.1, 0.8), hd: rand(0.1, 0.7), he: rand(0.1, 0.7),
-        cbo: rand(0.1, 0.7),
-        chs: isHighAI ? rand(0.2, 0.5) : rand(0.6, 0.9),
-        dpf: rand(0.1, 0.8), dsr: rand(0.1, 0.6),
-        dupRatio: isHighAI ? rand(0.05, 0.2) : rand(0, 0.05),
-        // Cognitive
         cli: rand(0, 1), ias: rand(0, 1), ags: rand(0, 1),
         ri: rand(0, 1), csc: rand(0, 1),
-        // AI Detection
         sus: isHighAI ? rand(0.4, 0.9) : rand(0, 0.3),
         tdd: rand(0, 0.5), pri: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
         crs: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
         scs: isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4),
-        // AI multi-signal
-        aiScore: isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4),
-        perplexityScore: isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4),
-        namingRegularity: isHighAI ? rand(0.4, 0.8) : rand(0.1, 0.3),
-        commentDensity: isHighAI ? rand(0.3, 0.7) : rand(0.05, 0.2),
-        templateSimilarity: isHighAI ? rand(0.3, 0.7) : rand(0, 0.2),
-        commitBurstScore: isHighAI ? rand(0.4, 0.8) : rand(0.1, 0.3),
-        formatConsistency: isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4),
       },
       linesOfCode: Math.floor(Math.random() * 400) + 50,
       functions: Math.floor(Math.random() * 15) + 2,
@@ -210,11 +184,6 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
         .sort((a, b) => (b.technicalDebt + b.cognitiveDebt) - (a.technicalDebt + a.cognitiveDebt))
         .slice(0, 3)
         .map(f => f.file),
-      dpf: Math.round(rand(0.5, 2.5) * 100) / 100,
-      dsr: Math.round(rand(0.1, 0.6) * 100) / 100,
-      avgMI: Math.round(fileAnalyses.reduce((s, f) => s + f.metrics.mi, 0) / numFiles * 100) / 100,
-      avgCHS: Math.round(fileAnalyses.reduce((s, f) => s + f.metrics.chs, 0) / numFiles * 100) / 100,
-      avgTDR: Math.round(fileAnalyses.reduce((s, f) => s + f.metrics.tdr, 0) / numFiles * 100) / 100,
     },
   };
 }
