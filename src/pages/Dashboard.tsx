@@ -196,10 +196,12 @@ export default function Dashboard() {
       Math.round(files.reduce((s, f) => s + (f.metrics[key] ?? 0), 0) / files.length * 100);
     return [
       { metric: "SUS", value: avg("sus") },
-      { metric: "TDD", value: avg("tdd") },
+      { metric: "Perplexity", value: avg("perplexityScore") },
       { metric: "PRI", value: avg("pri") },
       { metric: "CRS", value: avg("crs") },
-      { metric: "SCS", value: avg("scs") },
+      { metric: "Naming", value: avg("namingRegularity") },
+      { metric: "Template", value: avg("templateSimilarity") },
+      { metric: "Format", value: avg("formatConsistency") },
     ];
   })() : [];
 
