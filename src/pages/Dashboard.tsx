@@ -180,11 +180,11 @@ export default function Dashboard() {
     const avg = (key: keyof typeof files[0]['metrics']) =>
       Math.round(files.reduce((s, f) => s + (f.metrics[key] ?? 0), 0) / files.length * 100);
     return [
-      { metric: "DPS", value: avg("dps") },
-      { metric: "DLI", value: avg("dli") },
+      { metric: "TDR", value: avg("tdr") },
+      { metric: "MI", value: avg("mi") },
+      { metric: "CBO", value: avg("cbo") },
       { metric: "CLI", value: avg("cli") },
-      { metric: "CCD", value: avg("ccd") },
-      { metric: "IAS", value: avg("ias") },
+      { metric: "DPS", value: avg("dps") },
       { metric: "SUS", value: avg("sus") },
       { metric: "RI", value: avg("ri") },
     ];
@@ -196,10 +196,12 @@ export default function Dashboard() {
       Math.round(files.reduce((s, f) => s + (f.metrics[key] ?? 0), 0) / files.length * 100);
     return [
       { metric: "SUS", value: avg("sus") },
-      { metric: "TDD", value: avg("tdd") },
+      { metric: "Perplexity", value: avg("perplexityScore") },
       { metric: "PRI", value: avg("pri") },
       { metric: "CRS", value: avg("crs") },
-      { metric: "SCS", value: avg("scs") },
+      { metric: "Naming", value: avg("namingRegularity") },
+      { metric: "Template", value: avg("templateSimilarity") },
+      { metric: "Format", value: avg("formatConsistency") },
     ];
   })() : [];
 

@@ -32,6 +32,33 @@ function MiniBar({ label, value, color, tooltip }: { label: string; value: numbe
   return content;
 }
 
+// Inverted bar: higher value = better (e.g., MI, CHS)
+function InvertedBar({ label, value, color, tooltip }: { label: string; value: number; color: string; tooltip?: string }) {
+  const pct = Math.min(value * 100, 100);
+  const content = (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[10px]">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono text-foreground">{pct.toFixed(0)}%</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.6 }}
+        />
+      </div>
+    </div>
+  );
+
+  if (tooltip) {
+    return <MetricTooltip metric={tooltip} side="left">{content}</MetricTooltip>;
+  }
+  return content;
+}
+
 export default function DebtBreakdown({ file }: Props) {
   const complexity = Math.min(file.cyclomaticComplexity / 20, 1);
   const duplication = file.issues.includes("duplicate code blocks") || file.issues.includes("duplicate code")
@@ -40,7 +67,7 @@ export default function DebtBreakdown({ file }: Props) {
   const size = Math.min(file.linesOfCode / 400, 1);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-3">
       {/* Technical Debt */}
       <div className="rounded-lg border border-accent/20 bg-accent/5 p-3">
         <p className="text-[10px] font-semibold text-accent uppercase tracking-wider mb-2">Technical Debt</p>
@@ -51,6 +78,19 @@ export default function DebtBreakdown({ file }: Props) {
           <MiniBar label="DDP" value={file.metrics.ddp} color="hsl(36, 60%, 42%)" tooltip="DDP" />
           <MiniBar label="MDS" value={file.metrics.mds} color="hsl(36, 55%, 40%)" tooltip="MDS" />
           <MiniBar label="TC" value={file.metrics.tc} color="hsl(36, 50%, 38%)" tooltip="TC" />
+        </div>
+      </div>
+
+      {/* Research Metrics */}
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+        <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">Research Metrics</p>
+        <div className="space-y-2">
+          <MiniBar label="TDR" value={file.metrics.tdr} color="hsl(174, 72%, 52%)" tooltip="TDR" />
+          <InvertedBar label="MI" value={file.metrics.mi} color="hsl(142, 72%, 48%)" tooltip="MI" />
+          <MiniBar label="HV" value={file.metrics.hv} color="hsl(174, 60%, 46%)" tooltip="HV" />
+          <MiniBar label="CBO" value={file.metrics.cbo} color="hsl(174, 50%, 42%)" tooltip="CBO" />
+          <InvertedBar label="CHS" value={file.metrics.chs} color="hsl(142, 60%, 44%)" tooltip="CHS" />
+          <MiniBar label="Dup%" value={file.metrics.dupRatio} color="hsl(174, 45%, 40%)" tooltip="Dup Ratio" />
         </div>
       </div>
 
@@ -67,15 +107,16 @@ export default function DebtBreakdown({ file }: Props) {
         </div>
       </div>
 
-      {/* AI Detection */}
-      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-        <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">AI Detection</p>
+      {/* AI Detection Multi-Signal */}
+      <div className="rounded-lg border border-neon-purple/30 bg-neon-purple/10 p-3">
+        <p className="text-[10px] font-semibold text-neon-purple uppercase tracking-wider mb-2">AI Detection Signals</p>
         <div className="space-y-2">
-          <MiniBar label="SUS" value={file.metrics.sus} color="hsl(174, 72%, 52%)" tooltip="SUS" />
-          <MiniBar label="TDD" value={file.metrics.tdd} color="hsl(174, 65%, 48%)" tooltip="TDD" />
-          <MiniBar label="PRI" value={file.metrics.pri} color="hsl(174, 58%, 44%)" tooltip="PRI" />
-          <MiniBar label="CRS" value={file.metrics.crs} color="hsl(174, 52%, 40%)" tooltip="CRS" />
-          <MiniBar label="SCS" value={file.metrics.scs} color="hsl(174, 46%, 36%)" tooltip="SCS" />
+          <MiniBar label="SUS" value={file.metrics.sus} color="hsl(270, 72%, 62%)" tooltip="SUS" />
+          <MiniBar label="PRI" value={file.metrics.pri} color="hsl(270, 65%, 58%)" tooltip="PRI" />
+          <MiniBar label="CRS" value={file.metrics.crs} color="hsl(270, 58%, 54%)" tooltip="CRS" />
+          <MiniBar label="Perplexity" value={file.metrics.perplexityScore ?? 0} color="hsl(270, 52%, 50%)" tooltip="Perplexity" />
+          <MiniBar label="Naming" value={file.metrics.namingRegularity ?? 0} color="hsl(270, 46%, 46%)" tooltip="Naming Regularity" />
+          <MiniBar label="Template" value={file.metrics.templateSimilarity ?? 0} color="hsl(270, 40%, 42%)" tooltip="Template Similarity" />
         </div>
       </div>
     </div>
