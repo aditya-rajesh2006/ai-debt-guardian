@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, Brain, GitFork, Wrench, Bot, Flame } from "lucide-react";
+import { AlertTriangle, Brain, GitFork, Wrench, Bot, Flame, Gauge, Shield, Activity } from "lucide-react";
 import type { AnalysisResult } from "@/lib/mockAnalysis";
+import MetricTooltip from "./MetricTooltip";
 
 interface Props {
   data: AnalysisResult;
@@ -18,6 +19,18 @@ export default function InsightsPanel({ data }: Props) {
   const aiCogDebt = data.files.reduce((s, f) => s + f.cognitiveDebt * f.aiLikelihood, 0);
   const aiTechPct = totalTechDebt > 0 ? Math.round(aiTechDebt / totalTechDebt * 100) : 0;
   const aiCogPct = totalCogDebt > 0 ? Math.round(aiCogDebt / totalCogDebt * 100) : 0;
+
+  // Research metric averages
+  const avgMI = data.summary.avgMI ?? (data.files.reduce((s, f) => s + (f.metrics.mi ?? 0), 0) / data.files.length);
+  const avgCHS = data.summary.avgCHS ?? (data.files.reduce((s, f) => s + (f.metrics.chs ?? 0), 0) / data.files.length);
+  const avgTDR = data.summary.avgTDR ?? (data.files.reduce((s, f) => s + (f.metrics.tdr ?? 0), 0) / data.files.length);
+  const dpf = data.summary.dpf ?? 0;
+  const dsr = data.summary.dsr ?? 0;
+
+  const miLabel = avgMI > 0.85 ? "Excellent" : avgMI > 0.65 ? "Moderate" : "Poor";
+  const miColor = avgMI > 0.85 ? "text-neon-green" : avgMI > 0.65 ? "text-accent" : "text-destructive";
+  const tdrLabel = avgTDR < 0.05 ? "Healthy" : avgTDR < 0.1 ? "Moderate" : "High";
+  const tdrColor = avgTDR < 0.05 ? "text-neon-green" : avgTDR < 0.1 ? "text-accent" : "text-destructive";
 
   const sections = [
     {
@@ -99,6 +112,54 @@ export default function InsightsPanel({ data }: Props) {
         </div>
       </motion.div>
 
+      {/* Research Metrics Summary */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-5"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Research-Backed Metrics</h3>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <MetricTooltip metric="TDR">
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">TDR</p>
+              <p className={`text-lg font-black font-mono ${tdrColor}`}>{(avgTDR * 100).toFixed(1)}%</p>
+              <p className={`text-[10px] ${tdrColor}`}>{tdrLabel}</p>
+            </div>
+          </MetricTooltip>
+          <MetricTooltip metric="MI">
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Maintainability</p>
+              <p className={`text-lg font-black font-mono ${miColor}`}>{(avgMI * 100).toFixed(0)}</p>
+              <p className={`text-[10px] ${miColor}`}>{miLabel}</p>
+            </div>
+          </MetricTooltip>
+          <MetricTooltip metric="CHS">
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Code Health</p>
+              <p className="text-lg font-black font-mono text-foreground">{(avgCHS * 10).toFixed(1)}<span className="text-xs text-muted-foreground">/10</span></p>
+            </div>
+          </MetricTooltip>
+          <MetricTooltip metric="DPF">
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Propagation</p>
+              <p className="text-lg font-black font-mono text-foreground">{dpf.toFixed(2)}</p>
+              <p className="text-[10px] text-muted-foreground">{dpf > 1.5 ? "Spreading" : "Contained"}</p>
+            </div>
+          </MetricTooltip>
+          <MetricTooltip metric="DSR">
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Spread Rate</p>
+              <p className="text-lg font-black font-mono text-foreground">{(dsr * 100).toFixed(0)}%</p>
+            </div>
+          </MetricTooltip>
+        </div>
+      </motion.div>
+
       {/* AI vs Human Comparison */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -111,7 +172,6 @@ export default function InsightsPanel({ data }: Props) {
           <h3 className="text-sm font-semibold text-foreground">AI vs Human Debt Comparison</h3>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {/* Technical Debt split */}
           <div className="space-y-2">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Technical Debt Source</p>
             <div className="flex gap-1 h-4 rounded-full overflow-hidden">
@@ -135,7 +195,6 @@ export default function InsightsPanel({ data }: Props) {
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Human: {100 - aiTechPct}%</span>
             </div>
           </div>
-          {/* Cognitive Debt split */}
           <div className="space-y-2">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cognitive Debt Source</p>
             <div className="flex gap-1 h-4 rounded-full overflow-hidden">
