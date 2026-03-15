@@ -271,6 +271,7 @@ export default function Dashboard() {
     { id: "timeline", label: "Timeline", icon: Clock },
     { id: "recommendations", label: "Fix Plan", icon: Wrench },
     { id: "graph", label: "Graph", icon: Network },
+    { id: "cognitive", label: "Cognitive Model", icon: Brain },
   ];
 
   return (
