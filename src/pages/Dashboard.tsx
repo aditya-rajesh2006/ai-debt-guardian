@@ -17,6 +17,7 @@ import HistoryPanel from "@/components/HistoryPanel";
 import CommitTimeline from "@/components/CommitTimeline";
 import RefactorRecommendations from "@/components/RefactorRecommendations";
 import ReportDownload from "@/components/ReportDownload";
+import HumanCognitiveModel from "@/components/HumanCognitiveModel";
 import type { AnalysisResult, CommitTimelineData } from "@/lib/mockAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
