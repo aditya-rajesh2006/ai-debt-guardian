@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.ai-detect]
 verify_jwt = false
+
+[functions.human-cognitive-model]
+verify_jwt = false
