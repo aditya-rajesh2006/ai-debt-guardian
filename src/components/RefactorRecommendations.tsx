@@ -1,5 +1,9 @@
-import { motion } from "framer-motion";
-import { Wrench, ChevronRight, AlertTriangle, CheckCircle, Code } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Wrench, ChevronRight, CheckCircle, Code, AlertTriangle,
+  Clock, Zap, ArrowRight, ChevronDown, Layers, TrendingDown
+} from "lucide-react";
 import type { FileAnalysis } from "@/lib/mockAnalysis";
 
 interface Props {
@@ -9,9 +13,42 @@ interface Props {
 interface Recommendation {
   file: string;
   priority: "critical" | "high" | "medium";
-  steps: string[];
+  steps: Step[];
   impact: string;
+  impactPct: number;
   issues: string[];
+  estimatedEffort: string;
+  debtReduction: { technical: number; cognitive: number };
+}
+
+interface Step {
+  text: string;
+  category: "complexity" | "structure" | "naming" | "safety" | "readability";
+}
+
+const categoryConfig = {
+  complexity: { icon: Layers, label: "Complexity", color: "text-destructive" },
+  structure: { icon: Code, label: "Structure", color: "text-accent" },
+  naming: { icon: Zap, label: "Naming", color: "text-primary" },
+  safety: { icon: AlertTriangle, label: "Safety", color: "text-destructive" },
+  readability: { icon: TrendingDown, label: "Readability", color: "text-primary" },
+};
+
+function categorize(step: string): Step["category"] {
+  if (/complex|nesting|branch|depth/i.test(step)) return "complexity";
+  if (/split|module|extract|duplicate|consolidate|shared/i.test(step)) return "structure";
+  if (/rename|naming|generic/i.test(step)) return "naming";
+  if (/error|try|catch|test/i.test(step)) return "safety";
+  return "readability";
+}
+
+function estimateEffort(steps: Step[], loc: number): string {
+  const base = steps.length * 15;
+  const locFactor = loc > 500 ? 1.5 : loc > 200 ? 1.2 : 1;
+  const mins = Math.round(base * locFactor);
+  if (mins < 60) return `~${mins} min`;
+  const hrs = (mins / 60).toFixed(1);
+  return `~${hrs} hrs`;
 }
 
 function generateRecommendations(files: FileAnalysis[]): Recommendation[] {
@@ -19,122 +56,286 @@ function generateRecommendations(files: FileAnalysis[]): Recommendation[] {
     (a, b) => (b.technicalDebt + b.cognitiveDebt + b.aiLikelihood) - (a.technicalDebt + a.cognitiveDebt + a.aiLikelihood)
   );
 
-  return sorted.slice(0, 6).map(f => {
-    const steps: string[] = [];
-    const totalDebt = f.technicalDebt + f.cognitiveDebt;
+  const totalTechDebt = files.reduce((s, x) => s + x.technicalDebt, 0);
+  const totalCogDebt = files.reduce((s, x) => s + x.cognitiveDebt, 0);
+  const totalDebtAll = files.reduce((s, x) => s + x.technicalDebt + x.cognitiveDebt, 0);
 
-    // Generate specific steps based on detected issues
+  return sorted.slice(0, 8).map(f => {
+    const rawSteps: string[] = [];
+    
     if (f.cyclomaticComplexity > 15) {
-      steps.push(`Break down complex logic (complexity: ${f.cyclomaticComplexity}) — extract conditional branches into named helper functions`);
+      rawSteps.push(`Break down complex logic (complexity: ${f.cyclomaticComplexity}) — extract conditional branches into named helper functions`);
     }
     if (f.nestingDepth > 3) {
-      steps.push(`Reduce nesting depth from ${f.nestingDepth} to ≤3 — use early returns, guard clauses, and function extraction`);
+      rawSteps.push(`Reduce nesting depth from ${f.nestingDepth} to ≤3 — use early returns, guard clauses, and function extraction`);
     }
     if (f.linesOfCode > 300) {
-      steps.push(`Split large file (${f.linesOfCode} LOC) — separate concerns into focused modules of <150 LOC each`);
+      rawSteps.push(`Split large file (${f.linesOfCode} LOC) — separate concerns into focused modules of <150 LOC each`);
     }
     if (f.issues.includes("duplicate code blocks")) {
-      steps.push("Extract duplicate code blocks into shared utility functions with clear naming");
+      rawSteps.push("Extract duplicate code blocks into shared utility functions with clear naming");
     }
     if (f.issues.includes("overly generic naming") || f.issues.includes("inconsistent naming conventions")) {
-      steps.push("Rename variables: replace generic names (data, temp, result) with domain-specific descriptive names");
+      rawSteps.push("Rename variables: replace generic names (data, temp, result) with domain-specific descriptive names");
     }
     if (f.issues.includes("missing error handling")) {
-      steps.push("Add try/catch blocks around async operations with specific error types and user-friendly messages");
+      rawSteps.push("Add try/catch blocks around async operations with specific error types and user-friendly messages");
     }
     if (f.issues.includes("excessive comments") || f.issues.includes("over-explained comments")) {
-      steps.push("Remove obvious/redundant comments — let well-named functions and variables self-document");
+      rawSteps.push("Remove obvious/redundant comments — let well-named functions and variables self-document");
     }
     if (f.issues.includes("magic numbers")) {
-      steps.push("Extract magic numbers into named constants with clear documentation of their purpose");
+      rawSteps.push("Extract magic numbers into named constants with clear documentation of their purpose");
     }
     if (f.issues.includes("unnecessary abstraction")) {
-      steps.push("Remove unnecessary wrapper functions — inline single-use abstractions that add complexity without value");
+      rawSteps.push("Remove unnecessary wrapper functions — inline single-use abstractions that add complexity without value");
     }
     if (f.issues.includes("similar function structures")) {
-      steps.push("Consolidate similar functions using generics or parameterized factory patterns");
+      rawSteps.push("Consolidate similar functions using generics or parameterized factory patterns");
     }
     if (f.issues.includes("repeated logic across files")) {
-      steps.push("Create shared module for repeated cross-file logic — establish single source of truth");
+      rawSteps.push("Create shared module for repeated cross-file logic — establish single source of truth");
     }
     if (f.issues.includes("poor modularization") || f.issues.includes("missing modularization")) {
-      steps.push("Apply Single Responsibility Principle — each function/module should do exactly one thing");
+      rawSteps.push("Apply Single Responsibility Principle — each function/module should do exactly one thing");
     }
     if (f.metrics.rdi > 0.6) {
-      steps.push("Improve readability: add whitespace between logical sections, use consistent formatting");
+      rawSteps.push("Improve readability: add whitespace between logical sections, use consistent formatting");
     }
     if (f.metrics.ccd > 0.6) {
-      steps.push("Reduce cognitive complexity: simplify control flow, extract complex conditions into named booleans");
+      rawSteps.push("Reduce cognitive complexity: simplify control flow, extract complex conditions into named booleans");
+    }
+    if (rawSteps.length < 2) {
+      rawSteps.push("Add unit tests to cover critical paths before refactoring");
+      rawSteps.push("Review and update function signatures for clarity and type safety");
     }
 
-    // Always add at least 2 steps
-    if (steps.length < 2) {
-      steps.push("Add unit tests to cover critical paths before refactoring");
-      steps.push("Review and update function signatures for clarity and type safety");
-    }
-
+    const steps: Step[] = rawSteps.map(text => ({ text, category: categorize(text) }));
+    const totalDebt = f.technicalDebt + f.cognitiveDebt;
     const priority = totalDebt > 1.2 ? "critical" : totalDebt > 0.7 ? "high" : "medium";
-    const impactPct = Math.round((f.technicalDebt + f.cognitiveDebt) / files.reduce((s, x) => s + x.technicalDebt + x.cognitiveDebt, 0) * 100);
+    const impactPct = Math.round((totalDebt) / totalDebtAll * 100);
 
     return {
       file: f.file,
       priority,
       steps,
       impact: `Fixing this file reduces total system debt by ~${impactPct}%`,
+      impactPct,
       issues: f.issues,
+      estimatedEffort: estimateEffort(steps, f.linesOfCode),
+      debtReduction: {
+        technical: Math.round((f.technicalDebt / totalTechDebt) * 100),
+        cognitive: Math.round((f.cognitiveDebt / totalCogDebt) * 100),
+      },
     };
   });
 }
 
 const priorityConfig = {
-  critical: { color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/30", label: "CRITICAL" },
-  high: { color: "text-accent", bg: "bg-accent/10", border: "border-accent/30", label: "HIGH" },
-  medium: { color: "text-primary", bg: "bg-primary/10", border: "border-primary/30", label: "MEDIUM" },
+  critical: { color: "text-destructive", bg: "bg-destructive/5", border: "border-destructive/20", label: "CRITICAL", dot: "bg-destructive" },
+  high: { color: "text-accent", bg: "bg-accent/5", border: "border-accent/20", label: "HIGH", dot: "bg-accent" },
+  medium: { color: "text-primary", bg: "bg-primary/5", border: "border-primary/20", label: "MEDIUM", dot: "bg-primary" },
 };
 
 export default function RefactorRecommendations({ files }: Props) {
   const recommendations = generateRecommendations(files);
+  const [expanded, setExpanded] = useState<string | null>(recommendations[0]?.file ?? null);
+  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+
+  const toggleStep = (key: string) => {
+    setCompletedSteps(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const totalSteps = recommendations.reduce((s, r) => s + r.steps.length, 0);
+  const doneSteps = recommendations.reduce((s, r) => s + r.steps.filter((_, j) => completedSteps.has(`${r.file}-${j}`)).length, 0);
+  const overallProgress = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+
+  const totalImpact = recommendations.reduce((s, r) => {
+    const done = r.steps.filter((_, j) => completedSteps.has(`${r.file}-${j}`)).length;
+    return s + (done === r.steps.length ? r.impactPct : 0);
+  }, 0);
 
   return (
-    <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5">
-      <div className="flex items-center gap-2 mb-5">
-        <Wrench className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Step-by-Step Refactor Plan</h3>
-        <span className="ml-auto text-[10px] text-muted-foreground">{recommendations.length} files to fix</span>
+    <div className="space-y-6">
+      {/* Summary Header */}
+      <div className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Refactor Fix Plan</h3>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-3 w-3" />
+              {recommendations.reduce((s, r) => {
+                const m = r.estimatedEffort.match(/[\d.]+/);
+                return s + (m ? parseFloat(m[0]) * (r.estimatedEffort.includes("hrs") ? 60 : 1) : 0);
+              }, 0).toFixed(0)} min total effort
+            </span>
+            <span>{recommendations.length} files</span>
+          </div>
+        </div>
+
+        {/* Overall Progress */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-primary"
+              initial={{ width: 0 }}
+              animate={{ width: `${overallProgress}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+          <span className="text-xs font-mono text-foreground">{doneSteps}/{totalSteps}</span>
+        </div>
+        {totalImpact > 0 && (
+          <p className="mt-2 text-[11px] text-primary">
+            ✓ Completed files would reduce total debt by ~{totalImpact}%
+          </p>
+        )}
       </div>
 
-      <div className="space-y-4">
+      {/* Priority Lane Summary */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {(["critical", "high", "medium"] as const).map(p => {
+          const count = recommendations.filter(r => r.priority === p).length;
+          const config = priorityConfig[p];
+          return (
+            <motion.div
+              key={p}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-lg border ${config.border} ${config.bg} p-3 flex items-center gap-3`}
+            >
+              <span className={`h-2.5 w-2.5 rounded-full ${config.dot}`} />
+              <div>
+                <span className={`text-[10px] font-bold uppercase ${config.color}`}>{config.label}</span>
+                <p className="text-xs text-muted-foreground">{count} file{count !== 1 ? "s" : ""}</p>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* File Recommendations */}
+      <div className="space-y-3">
         {recommendations.map((rec, i) => {
           const config = priorityConfig[rec.priority];
+          const isOpen = expanded === rec.file;
+          const fileStepsDone = rec.steps.filter((_, j) => completedSteps.has(`${rec.file}-${j}`)).length;
+          const fileProgress = Math.round((fileStepsDone / rec.steps.length) * 100);
+          const allDone = fileStepsDone === rec.steps.length;
+
           return (
             <motion.div
               key={rec.file}
-              initial={{ opacity: 0, x: -10 }}
+              initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.08 }}
-              className={`rounded-lg border ${config.border} ${config.bg} p-4`}
+              transition={{ delay: i * 0.05 }}
+              className={`rounded-xl border ${allDone ? "border-primary/30 bg-primary/5" : `${config.border} bg-card/80`} backdrop-blur-sm overflow-hidden transition-colors`}
             >
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`text-[10px] font-bold ${config.color} px-2 py-0.5 rounded border ${config.border}`}>
-                  {config.label}
-                </span>
-                <Code className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs font-mono text-foreground truncate">{rec.file}</span>
-              </div>
-
-              <div className="space-y-2 ml-2">
-                {rec.steps.map((step, j) => (
-                  <div key={j} className="flex items-start gap-2">
-                    <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-                    <span className="text-xs text-muted-foreground">{step}</span>
+              {/* File Header */}
+              <button
+                onClick={() => setExpanded(isOpen ? null : rec.file)}
+                className="w-full flex items-center gap-3 p-4 text-left hover:bg-secondary/20 transition-colors"
+              >
+                <span className={`h-2 w-2 rounded-full shrink-0 ${allDone ? "bg-primary" : config.dot}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${config.color} ${config.bg} border ${config.border}`}>
+                      {allDone ? "DONE" : config.label}
+                    </span>
+                    <Code className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs font-mono text-foreground truncate">{rec.file}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{rec.estimatedEffort}</span>
+                    <span>{fileStepsDone}/{rec.steps.length} steps</span>
+                    <span className="flex items-center gap-1"><TrendingDown className="h-2.5 w-2.5" />-{rec.impactPct}% debt</span>
+                  </div>
+                </div>
 
-              <div className="mt-3 flex items-center gap-2">
-                <CheckCircle className="h-3 w-3 text-neon-green" />
-                <span className="text-[10px] text-neon-green font-medium">{rec.impact}</span>
-              </div>
+                {/* Mini progress */}
+                <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${fileProgress}%` }} />
+                </div>
+
+                <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {/* Expanded Steps */}
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 space-y-4">
+                      {/* Issues */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {rec.issues.slice(0, 6).map(iss => (
+                          <span key={iss} className="rounded-md bg-destructive/10 border border-destructive/20 px-2 py-0.5 text-[10px] text-destructive">
+                            {iss}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Steps as interactive checklist */}
+                      <div className="space-y-2 ml-1">
+                        {rec.steps.map((step, j) => {
+                          const key = `${rec.file}-${j}`;
+                          const done = completedSteps.has(key);
+                          const cat = categoryConfig[step.category];
+                          const CatIcon = cat.icon;
+                          return (
+                            <button
+                              key={j}
+                              onClick={() => toggleStep(key)}
+                              className={`flex items-start gap-2.5 w-full text-left rounded-lg px-3 py-2 transition-all ${
+                                done ? "bg-primary/5 opacity-60" : "hover:bg-secondary/30"
+                              }`}
+                            >
+                              <div className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                done ? "bg-primary border-primary" : "border-border"
+                              }`}>
+                                {done && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className={`text-xs ${done ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                  {step.text}
+                                </span>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <CatIcon className={`h-2.5 w-2.5 ${cat.color}`} />
+                                  <span className={`text-[9px] ${cat.color}`}>{cat.label}</span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Impact footer */}
+                      <div className="rounded-lg bg-secondary/20 p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] text-primary font-medium">{rec.impact}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                          <span>Tech: <strong className="text-foreground">-{rec.debtReduction.technical}%</strong></span>
+                          <span>Cog: <strong className="text-foreground">-{rec.debtReduction.cognitive}%</strong></span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           );
         })}
