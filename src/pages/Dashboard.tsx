@@ -17,6 +17,7 @@ import HistoryPanel from "@/components/HistoryPanel";
 import CommitTimeline from "@/components/CommitTimeline";
 import RefactorRecommendations from "@/components/RefactorRecommendations";
 import ReportDownload from "@/components/ReportDownload";
+import HumanCognitiveModel from "@/components/HumanCognitiveModel";
 import type { AnalysisResult, CommitTimelineData } from "@/lib/mockAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,7 +30,7 @@ import { useSearchParams } from "react-router-dom";
 
 const PropagationGraph = lazy(() => import("@/components/PropagationGraph"));
 
-type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations";
+type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations" | "cognitive";
 
 const analysisCache = new Map<string, AnalysisResult>();
 const timelineCache = new Map<string, CommitTimelineData>();
@@ -270,6 +271,7 @@ export default function Dashboard() {
     { id: "timeline", label: "Timeline", icon: Clock },
     { id: "recommendations", label: "Fix Plan", icon: Wrench },
     { id: "graph", label: "Graph", icon: Network },
+    { id: "cognitive", label: "Cognitive Model", icon: Brain },
   ];
 
   return (
@@ -650,6 +652,12 @@ export default function Dashboard() {
                   <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
                     <PropagationGraph data={data} />
                   </Suspense>
+                </motion.div>
+              )}
+
+              {activeTab === "cognitive" && (
+                <motion.div key="cognitive" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+                  <HumanCognitiveModel analysisData={data} />
                 </motion.div>
               )}
             </AnimatePresence>
