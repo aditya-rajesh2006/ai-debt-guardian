@@ -33,6 +33,22 @@ export interface FileAnalysis {
     pri: number;  // Pattern Repetition Index
     crs: number;  // Comment Redundancy Score
     scs: number;  // Style Consistency Score
+    // AI-Induced Debt Metrics
+    adaf: number; // AI Debt Amplification Factor
+    ctd: number;  // Cognitive Trace Divergence
+    srd: number;  // Semantic Redundancy Debt
+    aam: number;  // AI Abstraction Misalignment
+    ios: number;  // Intent Obfuscation Score
+    hmmd: number; // Human Mental Model Divergence
+    aitdis: number; // AI Technical Debt Impact Score (composite)
+    // Developer Cognitive Simulation
+    ird: number;  // Intent Recognition Difficulty
+    cfsc: number; // Control Flow Simulation Cost
+    stl: number;  // State Tracking Load
+    drc: number;  // Dependency Resolution Cost
+    aic: number;  // Abstraction Interpretation Cost
+    dcs: number;  // Developer Cognitive Simulation Score (composite)
+    actdi: number; // AI Cognitive Technical Debt Index (final composite)
   };
   linesOfCode: number;
   functions: number;
