@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Brain, Bug, FileCode, GitFork, TrendingUp, Zap, AlertTriangle,
   RefreshCw, Star, Code, BarChart3, Network, Table2, Flame, Target, Lightbulb,
-  Clock, Wrench, Shield
+  Clock, Wrench, Shield, Cpu
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
