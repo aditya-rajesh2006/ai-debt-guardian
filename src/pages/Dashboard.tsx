@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Brain, Bug, FileCode, GitFork, TrendingUp, Zap, AlertTriangle,
   RefreshCw, Star, Code, BarChart3, Network, Table2, Flame, Target, Lightbulb,
-  Clock, Wrench, Shield
+  Clock, Wrench, Shield, Cpu
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -18,6 +18,7 @@ import CommitTimeline from "@/components/CommitTimeline";
 import RefactorRecommendations from "@/components/RefactorRecommendations";
 import ReportDownload from "@/components/ReportDownload";
 import HumanCognitiveModel from "@/components/HumanCognitiveModel";
+import DeveloperCognitiveSimulation from "@/components/DeveloperCognitiveSimulation";
 import type { AnalysisResult, CommitTimelineData } from "@/lib/mockAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,7 +31,7 @@ import { useSearchParams } from "react-router-dom";
 
 const PropagationGraph = lazy(() => import("@/components/PropagationGraph"));
 
-type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations" | "cognitive";
+type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations" | "cognitive" | "dcs";
 
 const analysisCache = new Map<string, AnalysisResult>();
 const timelineCache = new Map<string, CommitTimelineData>();
@@ -272,6 +273,7 @@ export default function Dashboard() {
     { id: "recommendations", label: "Fix Plan", icon: Wrench },
     { id: "graph", label: "Graph", icon: Network },
     { id: "cognitive", label: "Cognitive Model", icon: Brain },
+    { id: "dcs", label: "AI Debt Index", icon: Cpu },
   ];
 
   return (
@@ -658,6 +660,12 @@ export default function Dashboard() {
               {activeTab === "cognitive" && (
                 <motion.div key="cognitive" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
                   <HumanCognitiveModel analysisData={data} />
+                </motion.div>
+              )}
+
+              {activeTab === "dcs" && (
+                <motion.div key="dcs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+                  <DeveloperCognitiveSimulation data={data} />
                 </motion.div>
               )}
             </AnimatePresence>

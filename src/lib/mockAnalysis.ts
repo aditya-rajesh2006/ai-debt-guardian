@@ -33,6 +33,22 @@ export interface FileAnalysis {
     pri: number;  // Pattern Repetition Index
     crs: number;  // Comment Redundancy Score
     scs: number;  // Style Consistency Score
+    // AI-Induced Debt Metrics
+    adaf: number; // AI Debt Amplification Factor
+    ctd: number;  // Cognitive Trace Divergence
+    srd: number;  // Semantic Redundancy Debt
+    aam: number;  // AI Abstraction Misalignment
+    ios: number;  // Intent Obfuscation Score
+    hmmd: number; // Human Mental Model Divergence
+    aitdis: number; // AI Technical Debt Impact Score (composite)
+    // Developer Cognitive Simulation
+    ird: number;  // Intent Recognition Difficulty
+    cfsc: number; // Control Flow Simulation Cost
+    stl: number;  // State Tracking Load
+    drc: number;  // Dependency Resolution Cost
+    aic: number;  // Abstraction Interpretation Cost
+    dcs: number;  // Developer Cognitive Simulation Score (composite)
+    actdi: number; // AI Cognitive Technical Debt Index (final composite)
   };
   linesOfCode: number;
   functions: number;
@@ -131,19 +147,42 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
       cognitiveDebt: isHighAI ? rand(0.5, 0.95) : rand(0.1, 0.4),
       propagationScore: rand(0.1, 0.9),
       issues: pickRandom(ISSUE_TYPES, isHighAI ? Math.floor(Math.random() * 4) + 2 : Math.floor(Math.random() * 2) + 1),
-      metrics: {
-        ccd: rand(0, 1), es: rand(0, 1),
-        aes: isHighAI ? rand(0.5, 1) : rand(0, 0.4),
-        rdi: rand(0, 1), dps: rand(0, 1), dli: rand(0, 1), drf: rand(0, 1),
-        cp: rand(0, 1), ccn: Math.floor(Math.random() * 400) + 50,
-        tc: rand(0, 1), ddp: rand(0, 1), mds: rand(0, 1),
-        cli: rand(0, 1), ias: rand(0, 1), ags: rand(0, 1),
-        ri: rand(0, 1), csc: rand(0, 1),
-        sus: isHighAI ? rand(0.4, 0.9) : rand(0, 0.3),
-        tdd: rand(0, 0.5), pri: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
-        crs: isHighAI ? rand(0.3, 0.8) : rand(0, 0.2),
-        scs: isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4),
-      },
+      metrics: (() => {
+        const ccd = rand(0, 1), es = rand(0, 1);
+        const aes = isHighAI ? rand(0.5, 1) : rand(0, 0.4);
+        const rdi = rand(0, 1), dps = rand(0, 1), dli = rand(0, 1), drf = rand(0, 1);
+        const cp = rand(0, 1), ccn = Math.floor(Math.random() * 400) + 50;
+        const tc = rand(0, 1), ddp = rand(0, 1), mds = rand(0, 1);
+        const cli = rand(0, 1), ias = rand(0, 1), ags = rand(0, 1);
+        const ri = rand(0, 1), csc = rand(0, 1);
+        const sus = isHighAI ? rand(0.4, 0.9) : rand(0, 0.3);
+        const tdd = rand(0, 0.5);
+        const pri = isHighAI ? rand(0.3, 0.8) : rand(0, 0.2);
+        const crs = isHighAI ? rand(0.3, 0.8) : rand(0, 0.2);
+        const scs = isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4);
+        // AI-Induced Debt Metrics
+        const adaf = isHighAI ? rand(2, 8) : rand(0.5, 2);
+        const ctd = isHighAI ? rand(0.3, 0.8) : rand(0.05, 0.25);
+        const srd = isHighAI ? rand(0.2, 0.7) : rand(0, 0.15);
+        const aam = isHighAI ? rand(0.3, 0.8) : rand(0.05, 0.2);
+        const ios = isHighAI ? rand(0.3, 0.7) : rand(0.05, 0.2);
+        const hmmd = isHighAI ? rand(0.3, 0.8) : rand(0.05, 0.2);
+        const aitdis = Math.round((0.2 * Math.min(adaf / 10, 1) + 0.15 * ctd + 0.15 * srd + 0.15 * aam + 0.15 * ios + 0.1 * rand(0, 0.5) + 0.1 * hmmd) * 100) / 100;
+        // DCS Components
+        const ird = isHighAI ? rand(0.15, 0.6) : rand(0.02, 0.15);
+        const cfsc = rand(0.05, 0.5);
+        const stl = isHighAI ? rand(0.1, 0.5) : rand(0.02, 0.15);
+        const drc = rand(0.05, 0.4);
+        const aic = isHighAI ? rand(0.1, 0.5) : rand(0.02, 0.12);
+        const dcs = Math.round((0.25 * ird + 0.20 * cfsc + 0.20 * stl + 0.20 * drc + 0.15 * aic) * 100) / 100;
+        const actdi = Math.round((0.4 * dcs + 0.3 * dps + 0.2 * (ddp + mds) / 2 + 0.1 * (1 - ri)) * 100) / 100;
+        return {
+          ccd, es, aes, rdi, dps, dli, drf, cp, ccn, tc, ddp, mds,
+          cli, ias, ags, ri, csc, sus, tdd, pri, crs, scs,
+          adaf, ctd, srd, aam, ios, hmmd, aitdis,
+          ird, cfsc, stl, drc, aic, dcs, actdi,
+        };
+      })(),
       linesOfCode: Math.floor(Math.random() * 400) + 50,
       functions: Math.floor(Math.random() * 15) + 2,
       cyclomaticComplexity: Math.floor(Math.random() * 20) + 1,

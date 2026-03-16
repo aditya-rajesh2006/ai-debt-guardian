@@ -15,24 +15,13 @@ interface GitHubFile {
 
 interface FileMetrics {
   ccd: number; es: number; aes: number; rdi: number; dps: number; dli: number; drf: number;
-  // Advanced Technical
-  cp: number;   // Change Proneness
-  ccn: number;  // Code Churn
-  tc: number;   // Temporal Complexity
-  ddp: number;  // Defect Density Proxy
-  mds: number;  // Modularity Degradation Score
-  // Advanced Cognitive
-  cli: number;  // Cognitive Load Index
-  ias: number;  // Identifier Ambiguity Score
-  ags: number;  // Abstraction Gap Score
-  ri: number;   // Readability Index
-  csc: number;  // Context Switching Cost
-  // AI Detection
-  sus: number;  // Structural Uniformity Score
-  tdd: number;  // Token Distribution Divergence
-  pri: number;  // Pattern Repetition Index
-  crs: number;  // Comment Redundancy Score
-  scs: number;  // Style Consistency Score
+  cp: number; ccn: number; tc: number; ddp: number; mds: number;
+  cli: number; ias: number; ags: number; ri: number; csc: number;
+  sus: number; tdd: number; pri: number; crs: number; scs: number;
+  // AI-Induced Debt Metrics
+  adaf: number; ctd: number; srd: number; aam: number; ios: number; hmmd: number; aitdis: number;
+  // Developer Cognitive Simulation
+  ird: number; cfsc: number; stl: number; drc: number; aic: number; dcs: number; actdi: number;
 }
 
 interface FileAnalysis {
@@ -512,9 +501,67 @@ serve(async (req) => {
       const allIssues = [...new Set([...ai.issues, ...tech.techIssues, ...cog.cogIssues])];
 
       // CP, CCN, TC are commit-based — approximate from static analysis
-      const cp = r(Math.min(allIssues.length / 8, 1)); // proxy
-      const ccn = tech.linesOfCode; // proxy: total LOC as churn
+      const cp = r(Math.min(allIssues.length / 8, 1));
+      const ccn = tech.linesOfCode;
       const tc = r(Math.min((cp * tech.cyclomaticComplexity) / 10, 1));
+
+      // ── AI-Induced Debt Metrics ──
+      // ADAF: Debt amplification from AI seed
+      const totalDownstreamDebt = tech.technicalDebt + cog.cognitiveDebt;
+      const adaf = r(ai.aiLikelihood > 0.3 ? totalDownstreamDebt / Math.max(ai.aiLikelihood * 0.3, 0.05) : 1);
+
+      // CTD: Cognitive Trace Divergence
+      const ctd = r(Math.min((tech.nestingDepth / 6 + tech.cyclomaticComplexity / 20) * ai.aiLikelihood, 1));
+
+      // SRD: Semantic Redundancy Debt
+      const redundantPatterns = (content.match(/&&\s*\w+\s*!==?\s*(null|undefined)/g) || []).length;
+      const totalConditions = (content.match(/&&|\|\|/g) || []).length + 1;
+      const srd = r(Math.min(redundantPatterns / Math.max(totalConditions, 1), 1));
+
+      // AAM: AI Abstraction Misalignment
+      const wrapperFuncs = (content.match(/function\s+\w+[^{]*\{[^}]{0,60}\}/g) || []).length;
+      const aam = r(Math.min(wrapperFuncs / Math.max(tech.functions, 1) * (1 + ai.aiLikelihood), 1));
+
+      // IOS: Intent Obfuscation Score (semantic entropy of identifiers)
+      const allIdentifiers = content.match(/\b[a-zA-Z_]\w{2,}\b/g) || [];
+      const uniqueIds = new Set(allIdentifiers).size;
+      const ios = r(Math.min(uniqueIds / Math.max(allIdentifiers.length * 0.3, 1), 1));
+
+      // HMMD: Human Mental Model Divergence (AST distribution divergence proxy)
+      const hmmd = r(Math.min((ai.sus * 0.4 + ai.pri * 0.3 + (1 - cog.metrics.es) * 0.3), 1));
+
+      // AITDIS composite
+      const adpv = r(cog.metrics.dps * ai.aiLikelihood); // propagation velocity proxy
+      const aitdis = r(0.20 * Math.min(adaf / 10, 1) + 0.15 * ctd + 0.15 * srd + 0.15 * aam + 0.15 * ios + 0.10 * adpv + 0.10 * hmmd);
+
+      // ── Developer Cognitive Simulation ──
+      // IRD: Intent Recognition Difficulty
+      const avgIdLen = allIdentifiers.reduce((s, id) => s + id.length, 0) / (allIdentifiers.length || 1);
+      const ird = r(1 - Math.min(avgIdLen / 12, 1));
+
+      // CFSC: Control Flow Simulation Cost
+      const branches = tech.cyclomaticComplexity;
+      const cfsc = r(Math.min((branches * tech.nestingDepth) / Math.max(tech.linesOfCode, 1), 1));
+
+      // STL: State Tracking Load
+      const mutableVars = (content.match(/\blet\s+\w+/g) || []).length;
+      const reassignments = (content.match(/\w+\s*=[^=]/g) || []).length;
+      const stl = r(Math.min((mutableVars * reassignments) / Math.max(tech.linesOfCode * 2, 1), 1));
+
+      // DRC: Dependency Resolution Cost
+      const importCount = (content.match(/import\s/g) || []).length;
+      const crossFileRefs = (content.match(/from\s+['"]/g) || []).length;
+      const drc = r(Math.min((importCount + crossFileRefs) / 20, 1));
+
+      // AIC: Abstraction Interpretation Cost
+      const abstractionLayers = (content.match(/class\s+\w+|interface\s+\w+|abstract\s+/g) || []).length;
+      const aic = r(Math.min(abstractionLayers / Math.max(tech.cyclomaticComplexity * 0.3, 1), 1));
+
+      // DCS composite
+      const dcs = r(0.25 * ird + 0.20 * cfsc + 0.20 * stl + 0.20 * drc + 0.15 * aic);
+
+      // ACTDI: AI Cognitive Technical Debt Index
+      const actdi = r(0.40 * dcs + 0.30 * cog.metrics.dps + 0.20 * ((tech.ddp + tech.mds) / 2) + 0.10 * (1 - cog.ri));
 
       fileAnalyses.push({
         file: ghFile.path,
@@ -526,18 +573,11 @@ serve(async (req) => {
         metrics: {
           ...cog.metrics,
           cp, ccn, tc,
-          ddp: tech.ddp,
-          mds: tech.mds,
-          cli: cog.cli,
-          ias: cog.ias,
-          ags: cog.ags,
-          ri: cog.ri,
-          csc: cog.csc,
-          sus: ai.sus,
-          tdd: ai.tdd,
-          pri: ai.pri,
-          crs: ai.crs,
-          scs: ai.scs,
+          ddp: tech.ddp, mds: tech.mds,
+          cli: cog.cli, ias: cog.ias, ags: cog.ags, ri: cog.ri, csc: cog.csc,
+          sus: ai.sus, tdd: ai.tdd, pri: ai.pri, crs: ai.crs, scs: ai.scs,
+          adaf, ctd, srd, aam, ios, hmmd, aitdis,
+          ird, cfsc, stl, drc, aic, dcs, actdi,
         },
         linesOfCode: tech.linesOfCode,
         functions: tech.functions,
