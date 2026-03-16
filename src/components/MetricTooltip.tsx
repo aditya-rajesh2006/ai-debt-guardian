@@ -35,6 +35,22 @@ const METRIC_EXPLANATIONS: Record<string, string> = {
   "PRI": "Pattern Repetition Index — Frequency of repeated logic blocks across the codebase.",
   "CRS": "Comment Redundancy Score — Comments that explain obvious code (AI hallmark).",
   "SCS": "Style Consistency Score — Suspiciously uniform formatting typical of AI generation.",
+  // AI-Induced Debt Metrics
+  "ADAF": "AI Debt Amplification Factor — How much debt grows from an AI code seed to downstream files.",
+  "CTD": "Cognitive Trace Divergence — How much execution logic deviates from typical human reasoning patterns.",
+  "SRD": "Semantic Redundancy Debt — Redundant conditions and checks commonly introduced by AI.",
+  "AAM": "AI Abstraction Misalignment — When AI introduces abstractions at the wrong level of complexity.",
+  "IOS": "Intent Obfuscation Score — How hard it is to infer the purpose of the code from its structure.",
+  "HMMD": "Human Mental Model Divergence — KL divergence between AI AST distribution and human patterns.",
+  "AITDIS": "AI Technical Debt Impact Score — Weighted composite of ADAF, CTD, SRD, AAM, IOS, ADPV, HMMD.",
+  // Developer Cognitive Simulation
+  "IRD": "Intent Recognition Difficulty — How hard to infer what the code is trying to do.",
+  "CFSC": "Control Flow Simulation Cost — Complexity of mentally tracing execution paths.",
+  "STL": "State Tracking Load — Mental load of tracking variable states through mutations.",
+  "DRC": "Dependency Resolution Cost — Effort to understand external references and imports.",
+  "AIC": "Abstraction Interpretation Cost — Difficulty understanding layered abstraction levels.",
+  "DCS": "Developer Cognitive Simulation Score — Composite mental effort to simulate code execution.",
+  "ACTDI": "AI Cognitive Technical Debt Index — Final composite combining DCS, propagation, and maintainability.",
 };
 
 interface Props {
