@@ -15,24 +15,13 @@ interface GitHubFile {
 
 interface FileMetrics {
   ccd: number; es: number; aes: number; rdi: number; dps: number; dli: number; drf: number;
-  // Advanced Technical
-  cp: number;   // Change Proneness
-  ccn: number;  // Code Churn
-  tc: number;   // Temporal Complexity
-  ddp: number;  // Defect Density Proxy
-  mds: number;  // Modularity Degradation Score
-  // Advanced Cognitive
-  cli: number;  // Cognitive Load Index
-  ias: number;  // Identifier Ambiguity Score
-  ags: number;  // Abstraction Gap Score
-  ri: number;   // Readability Index
-  csc: number;  // Context Switching Cost
-  // AI Detection
-  sus: number;  // Structural Uniformity Score
-  tdd: number;  // Token Distribution Divergence
-  pri: number;  // Pattern Repetition Index
-  crs: number;  // Comment Redundancy Score
-  scs: number;  // Style Consistency Score
+  cp: number; ccn: number; tc: number; ddp: number; mds: number;
+  cli: number; ias: number; ags: number; ri: number; csc: number;
+  sus: number; tdd: number; pri: number; crs: number; scs: number;
+  // AI-Induced Debt Metrics
+  adaf: number; ctd: number; srd: number; aam: number; ios: number; hmmd: number; aitdis: number;
+  // Developer Cognitive Simulation
+  ird: number; cfsc: number; stl: number; drc: number; aic: number; dcs: number; actdi: number;
 }
 
 interface FileAnalysis {
