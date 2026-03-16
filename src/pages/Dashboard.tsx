@@ -273,6 +273,7 @@ export default function Dashboard() {
     { id: "recommendations", label: "Fix Plan", icon: Wrench },
     { id: "graph", label: "Graph", icon: Network },
     { id: "cognitive", label: "Cognitive Model", icon: Brain },
+    { id: "dcs", label: "AI Debt Index", icon: Cpu },
   ];
 
   return (
