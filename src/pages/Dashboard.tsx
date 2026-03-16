@@ -662,6 +662,12 @@ export default function Dashboard() {
                   <HumanCognitiveModel analysisData={data} />
                 </motion.div>
               )}
+
+              {activeTab === "dcs" && (
+                <motion.div key="dcs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+                  <DeveloperCognitiveSimulation data={data} />
+                </motion.div>
+              )}
             </AnimatePresence>
           </motion.div>
         )}
