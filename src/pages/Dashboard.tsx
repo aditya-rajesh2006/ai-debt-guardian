@@ -502,6 +502,7 @@ export default function Dashboard() {
                                 {isExpanded && (
                                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden ml-6">
                                     <div className="rounded-lg bg-secondary/30 p-3 mt-1 text-xs space-y-1.5">
+                                      {f.explanation && <p className="text-muted-foreground italic border-l-2 border-primary/30 pl-2 mb-2">{f.explanation}</p>}
                                       <p className="text-muted-foreground"><strong className="text-foreground">If you fix this file:</strong></p>
                                       <p className="text-muted-foreground">→ Technical debt reduces by <strong className="text-neon-green">{impact.techReduction}%</strong></p>
                                       <p className="text-muted-foreground">→ Cognitive debt reduces by <strong className="text-neon-green">{impact.cogReduction}%</strong></p>
