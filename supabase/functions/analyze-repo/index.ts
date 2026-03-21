@@ -573,8 +573,13 @@ serve(async (req) => {
       if (!content) continue;
 
       const ai = detectAIPatterns(content, allContents);
+      const featureVector = extractFeatureVector(content);
+      const datasetScore = computeDatasetScore(featureVector);
+      const structuralScore = Math.min(ai.sus * 0.3 + ai.pri * 0.3 + ai.scs * 0.4, 1);
+      const hybridAiScore = r(ai.aiLikelihood * 0.4 + datasetScore * 0.4 + structuralScore * 0.2);
+
       const tech = detectTechnicalDebt(content);
-      const cog = detectCognitiveDebt(content, tech.technicalDebt, ai.aiLikelihood);
+      const cog = detectCognitiveDebt(content, tech.technicalDebt, hybridAiScore);
 
       const allIssues = [...new Set([...ai.issues, ...tech.techIssues, ...cog.cogIssues])];
 
