@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Brain, Users, Target, Rocket, ChevronDown } from "lucide-react";
+import { Brain, Users, Target, Rocket, ChevronDown, Bug, Zap, GitFork } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AnimatedBackground from "@/components/AnimatedBackground";
