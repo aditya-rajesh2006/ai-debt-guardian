@@ -684,6 +684,16 @@ serve(async (req) => {
 
     const propagation = buildPropagationGraph(fileAnalyses, fileContentsMap);
 
+    // Advanced propagation scoring: centrality + reuse + AI amplification
+    const inEdgeCounts = new Map<string, number>();
+    for (const e of propagation) inEdgeCounts.set(e.target, (inEdgeCounts.get(e.target) || 0) + 1);
+    for (const f of fileAnalyses) {
+      const centrality = (inEdgeCounts.get(f.file) || 0) / Math.max(fileAnalyses.length, 1);
+      const reuse = propagation.filter(e => e.source === f.file).length / Math.max(fileAnalyses.length * 0.5, 1);
+      const aiAmp = f.aiLikelihood > 0.7 ? 1.3 : 1.0;
+      f.propagationScore = r(Math.min(((f.technicalDebt * 0.4) + (f.cognitiveDebt * 0.2) + (f.aiLikelihood * 0.2) + (centrality * 0.1) + (Math.min(reuse, 1) * 0.1)) * aiAmp, 1));
+    }
+
     const n = fileAnalyses.length;
     const avgAiLikelihood = r(fileAnalyses.reduce((s, f) => s + f.aiLikelihood, 0) / n);
     const avgTechnicalDebt = r(fileAnalyses.reduce((s, f) => s + f.technicalDebt, 0) / n);

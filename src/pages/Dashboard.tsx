@@ -668,15 +668,10 @@ export default function Dashboard() {
                 </motion.div>
               )}
 
-              {activeTab === "cognitive" && (
-                <motion.div key="cognitive" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
-                  <HumanCognitiveModel analysisData={data} />
-                </motion.div>
-              )}
-
-              {activeTab === "dcs" && (
-                <motion.div key="dcs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+              {activeTab === "deepAnalysis" && (
+                <motion.div key="deepAnalysis" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }} className="space-y-8">
                   <DeveloperCognitiveSimulation data={data} />
+                  <HumanCognitiveModel analysisData={data} />
                 </motion.div>
               )}
             </AnimatePresence>

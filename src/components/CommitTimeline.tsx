@@ -197,6 +197,12 @@ export default function CommitTimeline({ commits, developers, trend, momentum, p
               <span className="text-muted-foreground">{currentCommit.author}</span>
             </div>
             <p className="text-muted-foreground mb-2 truncate">{currentCommit.message}</p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {currentCommit.aiContribution > 0.6 && <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] text-primary font-medium">🤖 AI-heavy</span>}
+              {currentCommit.isSpike && <span className="rounded-full bg-destructive/10 border border-destructive/20 px-2 py-0.5 text-[10px] text-destructive font-medium">📈 Spike</span>}
+              {currentCommit.deletions > currentCommit.additions * 1.5 && <span className="rounded-full bg-neon-green/10 border border-neon-green/20 px-2 py-0.5 text-[10px] text-neon-green font-medium">🔧 Refactor</span>}
+              {currentCommit.techDebt < 0.3 && currentCommit.cogDebt < 0.3 && <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] text-primary font-medium">✅ Clean</span>}
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <span className="text-muted-foreground">Tech Debt</span>
