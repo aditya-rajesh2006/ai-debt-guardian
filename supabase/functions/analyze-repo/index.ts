@@ -37,6 +37,9 @@ interface FileAnalysis {
   cyclomaticComplexity: number;
   nestingDepth: number;
   aiDebtContribution: number;
+  explanation: string;
+  datasetScore: number;
+  featureVector: number[];
 }
 
 interface PropagationEdge {
