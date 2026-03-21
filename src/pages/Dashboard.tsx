@@ -31,7 +31,7 @@ import { useSearchParams } from "react-router-dom";
 
 const PropagationGraph = lazy(() => import("@/components/PropagationGraph"));
 
-type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations" | "cognitive" | "dcs";
+type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations" | "deepAnalysis";
 
 const analysisCache = new Map<string, AnalysisResult>();
 const timelineCache = new Map<string, CommitTimelineData>();
