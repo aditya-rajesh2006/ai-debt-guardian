@@ -55,6 +55,9 @@ export interface FileAnalysis {
   cyclomaticComplexity: number;
   nestingDepth: number;
   aiDebtContribution: number;
+  explanation: string;
+  datasetScore: number;
+  featureVector: number[];
 }
 
 export interface PropagationEdge {
@@ -188,6 +191,11 @@ export function generateMockAnalysis(repoName: string): AnalysisResult {
       cyclomaticComplexity: Math.floor(Math.random() * 20) + 1,
       nestingDepth: Math.floor(Math.random() * 6) + 1,
       aiDebtContribution: isHighAI ? rand(40, 90) : rand(5, 30),
+      explanation: isHighAI
+        ? 'Strong AI-generation signals — high structural uniformity and generic naming patterns. Technical debt amplified through dependency chains.'
+        : 'Relatively clean with low AI indicators and manageable debt levels.',
+      datasetScore: isHighAI ? rand(0.5, 0.9) : rand(0.1, 0.4),
+      featureVector: Array.from({ length: 12 }, () => rand(0.1, 0.9)),
     };
   });
 

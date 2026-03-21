@@ -31,7 +31,7 @@ import { useSearchParams } from "react-router-dom";
 
 const PropagationGraph = lazy(() => import("@/components/PropagationGraph"));
 
-type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations" | "cognitive" | "dcs";
+type Tab = "overview" | "files" | "graph" | "timeline" | "recommendations" | "deepAnalysis";
 
 const analysisCache = new Map<string, AnalysisResult>();
 const timelineCache = new Map<string, CommitTimelineData>();
@@ -272,8 +272,7 @@ export default function Dashboard() {
     { id: "timeline", label: "Timeline", icon: Clock },
     { id: "recommendations", label: "Fix Plan", icon: Wrench },
     { id: "graph", label: "Graph", icon: Network },
-    { id: "cognitive", label: "Cognitive Model", icon: Brain },
-    { id: "dcs", label: "AI Debt Index", icon: Cpu },
+    { id: "deepAnalysis", label: "Deep Analysis", icon: Brain },
   ];
 
   return (
@@ -395,28 +394,39 @@ export default function Dashboard() {
               </MetricTooltip>
             </div>
 
-            {/* Debt distribution + velocity */}
+            {/* Gradient Score Bars */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                { label: "AI Detection", value: data.summary.avgAiLikelihood, gradient: "from-primary to-[hsl(200,80%,50%)]", desc: "Hybrid: heuristic (40%) + dataset calibration (40%) + structural (20%)" },
+                { label: "Technical Debt", value: data.summary.avgTechnicalDebt, gradient: "from-accent to-[hsl(15,80%,50%)]", desc: "Complexity, duplication, nesting, modularity degradation" },
+                { label: "Cognitive Debt", value: data.summary.avgCognitiveDebt, gradient: "from-[hsl(270,72%,62%)] to-[hsl(300,60%,50%)]", desc: "Readability, naming clarity, abstraction gaps, context switching" },
+              ].map((bar, i) => (
+                <motion.div key={bar.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 card-hover">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-semibold text-foreground">{bar.label}</span>
+                    <span className="text-lg font-black font-mono text-foreground">{(bar.value * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-muted overflow-hidden">
+                    <motion.div className={`h-full rounded-full bg-gradient-to-r ${bar.gradient}`} initial={{ width: 0 }} animate={{ width: `${bar.value * 100}%` }} transition={{ duration: 1, delay: 0.3 + i * 0.1 }} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">{bar.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Insights row */}
             <div className="grid gap-4 sm:grid-cols-2">
               {debtDistribution && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-4 flex items-center gap-3"
-                >
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-4 flex items-center gap-3">
                   <Lightbulb className="h-5 w-5 text-primary shrink-0" />
                   <p className="text-sm text-foreground">
-                    <strong className="text-primary">{debtDistribution.pct}%</strong> of your debt comes from just{" "}
-                    <strong className="text-primary">{debtDistribution.count} files</strong> out of {debtDistribution.total} total.
+                    <strong className="text-primary">{debtDistribution.pct}%</strong> of debt from just{" "}
+                    <strong className="text-primary">{debtDistribution.count} files</strong> of {debtDistribution.total}.
                   </p>
                 </motion.div>
               )}
               {debtVelocity && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 flex items-center gap-3"
-                >
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 flex items-center gap-3">
                   <TrendingUp className="h-5 w-5 text-muted-foreground shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground">Debt Velocity</p>
@@ -492,6 +502,7 @@ export default function Dashboard() {
                                 {isExpanded && (
                                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden ml-6">
                                     <div className="rounded-lg bg-secondary/30 p-3 mt-1 text-xs space-y-1.5">
+                                      {f.explanation && <p className="text-muted-foreground italic border-l-2 border-primary/30 pl-2 mb-2">{f.explanation}</p>}
                                       <p className="text-muted-foreground"><strong className="text-foreground">If you fix this file:</strong></p>
                                       <p className="text-muted-foreground">→ Technical debt reduces by <strong className="text-neon-green">{impact.techReduction}%</strong></p>
                                       <p className="text-muted-foreground">→ Cognitive debt reduces by <strong className="text-neon-green">{impact.cogReduction}%</strong></p>
@@ -657,15 +668,10 @@ export default function Dashboard() {
                 </motion.div>
               )}
 
-              {activeTab === "cognitive" && (
-                <motion.div key="cognitive" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
-                  <HumanCognitiveModel analysisData={data} />
-                </motion.div>
-              )}
-
-              {activeTab === "dcs" && (
-                <motion.div key="dcs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }}>
+              {activeTab === "deepAnalysis" && (
+                <motion.div key="deepAnalysis" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }} className="space-y-8">
                   <DeveloperCognitiveSimulation data={data} />
+                  <HumanCognitiveModel analysisData={data} />
                 </motion.div>
               )}
             </AnimatePresence>

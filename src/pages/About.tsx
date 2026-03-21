@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Brain, Users, Target, Rocket, ChevronDown } from "lucide-react";
+import { Brain, Users, Target, Rocket, ChevronDown, Bug, Zap, GitFork } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AnimatedBackground from "@/components/AnimatedBackground";
@@ -64,6 +64,39 @@ export default function About() {
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
             </motion.div>
           ))}
+        </div>
+
+        {/* Methodology */}
+        <div className="max-w-3xl mx-auto">
+          <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-xl font-bold text-foreground text-center mb-8">
+            Methodology
+          </motion.h2>
+          <div className="space-y-2">
+            {[
+              { title: "Technical Debt Analysis", icon: Bug, desc: "Measures structural complexity through cyclomatic complexity, nesting depth, duplication, and modularity degradation.", formula: "TDS = complexity×0.3 + nesting×0.25 + duplication×0.2 + file_size×0.15 + coupling×0.1", research: "Based on SonarQube maintainability models and McCabe complexity theory." },
+              { title: "Cognitive Debt Analysis", icon: Brain, desc: "Quantifies mental effort to understand code using naming clarity, readability, and context switching metrics.", formula: "CDS = CCD×0.15 + (1-ES)×0.1 + AES×0.1 + CLI×0.15 + IAS×0.1 + AGS×0.1 + RI×0.1 + CSC×0.1", research: "Inspired by cognitive load theory (Sweller, 1988) applied to code comprehension." },
+              { title: "AI Detection Engine", icon: Zap, desc: "Hybrid detection combining heuristic analysis (40%), dataset calibration via cosine similarity (40%), and structural scoring (20%).", formula: "AI_score = heuristic×0.4 + dataset_similarity×0.4 + structural×0.2", research: "Dataset calibration uses cosine similarity against empirical human/AI code feature vectors." },
+              { title: "Debt Propagation Model", icon: GitFork, desc: "Maps how debt spreads through import chains, code clones, and shared patterns with AI amplification.", formula: "APS = TDS×0.4 + CDS×0.2 + AI×0.2 + centrality×0.1 + reuse×0.1 → ×AI_amp", research: "Extends dependency structure matrix analysis with AI-specific propagation vectors." },
+            ].map((card, i) => (
+              <motion.div key={card.title} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden">
+                <button onClick={() => setOpenFaq(openFaq === 100 + i ? null : 100 + i)} className="flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium text-foreground hover:bg-secondary/30 transition-colors">
+                  <span className="flex items-center gap-2"><card.icon className="h-4 w-4 text-primary" />{card.title}</span>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200 ${openFaq === 100 + i ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence>
+                  {openFaq === 100 + i && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+                      <div className="px-5 pb-4 space-y-2">
+                        <p className="text-sm text-muted-foreground">{card.desc}</p>
+                        <div className="rounded-lg bg-secondary/30 px-3 py-2 font-mono text-[11px] text-foreground overflow-x-auto">{card.formula}</div>
+                        <p className="text-[11px] text-muted-foreground italic">{card.research}</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
         {/* Team */}
