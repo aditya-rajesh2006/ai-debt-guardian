@@ -55,6 +55,9 @@ export interface FileAnalysis {
   cyclomaticComplexity: number;
   nestingDepth: number;
   aiDebtContribution: number;
+  explanation: string;
+  datasetScore: number;
+  featureVector: number[];
 }
 
 export interface PropagationEdge {
