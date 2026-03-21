@@ -646,9 +646,16 @@ serve(async (req) => {
       // ACTDI: AI Cognitive Technical Debt Index
       const actdi = r(0.40 * dcs + 0.30 * cog.metrics.dps + 0.20 * ((tech.ddp + tech.mds) / 2) + 0.10 * (1 - cog.ri));
 
+      const explanation = generateExplanation({
+        aiLikelihood: hybridAiScore, technicalDebt: tech.technicalDebt,
+        cognitiveDebt: cog.cognitiveDebt, issues: allIssues,
+        nestingDepth: tech.nestingDepth, cyclomaticComplexity: tech.cyclomaticComplexity,
+        linesOfCode: tech.linesOfCode, propagationScore: cog.metrics.dps,
+      });
+
       fileAnalyses.push({
         file: ghFile.path,
-        aiLikelihood: ai.aiLikelihood,
+        aiLikelihood: hybridAiScore,
         technicalDebt: tech.technicalDebt,
         cognitiveDebt: cog.cognitiveDebt,
         propagationScore: cog.metrics.dps,
@@ -667,6 +674,9 @@ serve(async (req) => {
         cyclomaticComplexity: tech.cyclomaticComplexity,
         nestingDepth: tech.nestingDepth,
         aiDebtContribution: ai.aiDebtContribution,
+        explanation,
+        datasetScore,
+        featureVector,
       });
     }
 
